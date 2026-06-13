@@ -4,9 +4,9 @@ const app = express();
 app.use(express.json());
 
 // ===== CONFIG - Environment se aayega =====
-const WHATSAPP_TOKEN = process.env.EAAMEDcGznz0BRndchrv5ZAaxY91XZByHHlFufpcKnIZCTpqiW7ZC1Glm8BxG5LRCBZCjs9bqJBudMQj2NMZBZCyZCVmkdS5fCMoXbx8wXnpPwyZCttTSCfMqGLMWXE6eVJlzerhONIOBwATjIeTOroOm2aKA2188f5w2BoSZCAUKowlnY3jngxcMfRi3LyQGUQgZC7ijAZDZD;
-const PHONE_NUMBER_ID = process.env.1060745180462931;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'deepak_webhook_123';
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 // ============================================
 
 // ===== TERE CATEGORIES YAHAN FIX KAR DIYE =====
