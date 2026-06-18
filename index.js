@@ -7,7 +7,9 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'deepak_webhook_123';
 
+// User sessions + Seller database
 const users = {};
+const sellers = {}; // { '91756xxx': { name: 'Ram Kirana', cat: 'भोजन Food', sub: 'अनाज दालें', lat: 25.4, lon: 85.5 } }
 
 const CATS = [
   { id: 'food', title: 'भोजन Food', subs: ['अनाज दालें','सब्जी फल','दूध डेयरी','मीट चिकन','तेल घी','मसाले सॉस','स्नैक्स','बेकरी','ड्रिंक्स','आर्गेनिक'] },
@@ -32,68 +34,48 @@ async function sendWA(to, data) {
   }
 }
 
-function sendMainList(to) {
-  const rows = CATS.map(c => ({ id: c.id, title: c.title }));
+// Step 0: Welcome - Customer ya Seller
+function sendWelcome(to) {
   return sendWA(to, {
     type: 'interactive',
     interactive: {
-      type: 'list',
+      type: 'button',
       header: { type: 'text', text: 'NearMe Services' },
-      body: { text: 'Namaste! Kya chahiye? Category chune:' },
-      action: { button: 'Categories', sections: [{ title: 'Main Categories', rows }] }
-    }
-  });
-}
-
-function sendSubList(to, catId) {
-  const cat = CATS.find(c => c.id === catId);
-  const rows = cat.subs.map((s, i) => ({ id: `${catId}_${i}`, title: s }));
-  return sendWA(to, {
-    type: 'interactive',
-    interactive: {
-      type: 'list',
-      header: { type: 'text', text: cat.title },
-      body: { text: 'Kya chahiye? Option chune:' },
-      action: { button: 'Options', sections: [{ title: 'Sub-Categories', rows }] }
-    }
-  });
-}
-
-function askDetails(to) {
-  return sendWA(to, {
-    type: 'text', 
-    text: { body: `📝 Apni requirement detail me likhe:\n\nJaise: "2kg Basmati chawal, 1L doodh"\n\nYa photo bhej sakte hain 📷` }
-  });
-}
-
-function askRadius(to) {
-  return sendWA(to, {
-    type: 'interactive',
-    interactive: {
-      type: 'list',
-      header: { type: 'text', text: 'Distance Circle' },
-      body: { text: '📏 Provider kitni duri tak chahiye?\n\nKitne KM ke dayre me dhundhe:' },
+      body: { text: 'Namaste! 🙏\n\nAap kaun hain?' },
       action: {
-        button: 'Radius Chune',
-        sections: [{
-          title: 'Distance Options',
-          rows: [
-            { id: 'rad_1', title: '1 KM ke andar' },
-            { id: 'rad_3', title: '3 KM ke andar' },
-            { id: 'rad_5', title: '5 KM ke andar' },
-            { id: 'rad_10', title: '10 KM ke andar' },
-            { id: 'rad_any', title: 'Kahin se bhi chale' }
-          ]
-        }]
+        buttons: [
+          { type: 'reply', reply: { id: 'role_customer', title: '🛒 Customer' } },
+          { type: 'reply', reply: { id: 'role_seller', title: '🏪 Seller/Service' } }
+        ]
       }
     }
   });
 }
 
-function askLocation(to) {
+function sendMainList(to, role) {
+  const rows = CATS.map(c => ({ id: `${role}_${c.id}`, title: c.title }));
   return sendWA(to, {
-    type: 'text', 
-    text: { body: `📍 Ab apna location share kare:\n\nWhatsApp me 📎 pin icon → Location → "Send your current location" dabaye` }
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      header: { type: 'text', text: role === 'cust'? 'Customer' : 'Seller Registration' },
+      body: { text: 'Category chune:' },
+      action: { button: 'Categories', sections: [{ title: 'Categories', rows }] }
+    }
+  });
+}
+
+function sendSubList(to, role, catId) {
+  const cat = CATS.find(c => c.id === catId);
+  const rows = cat.subs.map((s, i) => ({ id: `${role}_${catId}_${i}`, title: s }));
+  return sendWA(to, {
+    type: 'interactive',
+    interactive: {
+      type: 'list',
+      header: { type: 'text', text: cat.title },
+      body: { text: role === 'cust'? 'Kya chahiye?' : 'Aap kya bechte/service dete hain?' },
+      action: { button: 'Options', sections: [{ title: 'Sub-Categories', rows }] }
+    }
   });
 }
 
@@ -110,59 +92,134 @@ app.post('/webhook', async (req, res) => {
   
   const from = msg.from;
   const text = msg.text?.body?.toLowerCase().trim();
+  const btnId = msg.interactive?.button_reply?.id;
   const listId = msg.interactive?.list_reply?.id;
   const listTitle = msg.interactive?.list_reply?.title;
   const image = msg.image;
   const location = msg.location;
   
   if (!users[from]) users[from] = { step: 'start' };
-  console.log('User:', from, '| Step:', users[from].step, '| Input:', text || listId || 'media');
+  const u = users[from];
+  
+  console.log('From:', from, '| Step:', u.step, '| Input:', btnId || listId || text || 'media');
 
-  // Step 1: Hi
+  // Check if seller already registered
+  if (sellers[from] && btnId === 'role_seller') {
+    const s = sellers[from];
+    return sendWA(from, { 
+      type: 'text', 
+      text: { body: `⚠️ Aap already registered hain!\n\n🏪 Naam: ${s.name}\n📦 Category: ${s.cat}\n📋 Service: ${s.sub}\n📞 No: ${s.waNum}\n\nEk number se ek hi registration hota hai.` }
+    });
+  }
+
+  // Step 1: Hi → Welcome
   if (text === 'hi' || text === 'hello' || text === 'hey') {
-    users[from] = { step: 'main' };
-    await sendMainList(from);
-  } 
-  
-  // Step 2: Main Category
-  else if (listId && CATS.find(c => c.id === listId)) {
-    users[from] = { step: 'sub', catId: listId, catTitle: CATS.find(c => c.id === listId).title };
-    await sendSubList(from, listId);
-  } 
-  
-  // Step 3: Sub-Category
-  else if (listId && listId.includes('_') &&!listId.includes('rad_')) {
-    users[from] = {...users[from], step: 'details', subId: listId, subTitle: listTitle };
-    await askDetails(from);
+    users[from] = { step: 'welcome' };
+    await sendWelcome(from);
   }
   
-  // Step 4: Details Text/Photo
-  else if (users[from].step === 'details' && (text || image)) {
-    users[from].step = 'radius';
-    users[from].details = text || 'Photo bheji gayi';
-    users[from].hasImage =!!image;
-    await askRadius(from);
+  // Step 2: Role Select
+  else if (btnId === 'role_customer') {
+    users[from] = { step: 'cust_main', role: 'cust' };
+    await sendMainList(from, 'cust');
+  }
+  else if (btnId === 'role_seller') {
+    users[from] = { step: 'sell_main', role: 'sell' };
+    await sendMainList(from, 'sell');
   }
   
-  // Step 5: Radius Select
-  else if (listId && listId.includes('rad_')) {
-    users[from].step = 'location';
-    users[from].radius = listTitle;
-    await askLocation(from);
+  // Step 3: Main Category - Customer
+  else if (listId && listId.startsWith('cust_') && u.step === 'cust_main') {
+    const catId = listId.replace('cust_', '');
+    users[from] = {...u, step: 'cust_sub', catId, catTitle: CATS.find(c => c.id === catId).title };
+    await sendSubList(from, 'cust', catId);
   }
   
-  // Step 6: Location - Final
-  else if (users[from].step === 'location' && location) {
-    const u = users[from];
-    const finalMsg = `✅ Request Complete!\n\n📦 Category: ${u.catTitle}\n📋 Item: ${u.subTitle}\n📝 Details: ${u.details}\n📷 Photo: ${u.hasImage? 'Haan' : 'Nahi'}\n📏 Radius: ${u.radius}\n📍 Location: ${location.latitude}, ${location.longitude}\n\nAapke ${u.radius} me provider jald contact karega.`;
-    
-    await sendWA(from, { type: 'text', text: { body: finalMsg } });
-    console.log('FINAL ORDER:', u, location);
+  // Step 3: Main Category - Seller
+  else if (listId && listId.startsWith('sell_') && u.step === 'sell_main') {
+    const catId = listId.replace('sell_', '');
+    users[from] = {...u, step: 'sell_sub', catId, catTitle: CATS.find(c => c.id === catId).title };
+    await sendSubList(from, 'sell', catId);
+  }
+  
+  // Step 4: Sub Category - Customer
+  else if (listId && listId.startsWith('cust_') && u.step === 'cust_sub') {
+    users[from] = {...u, step: 'cust_details', subTitle: listTitle };
+    await sendWA(from, { type: 'text', text: { body: `📝 Apni requirement detail me likhe:\n\nYa photo bhej sakte hain 📷` }});
+  }
+  
+  // Step 4: Sub Category - Seller
+  else if (listId && listId.startsWith('sell_') && u.step === 'sell_sub') {
+    users[from] = {...u, step: 'sell_name', subTitle: listTitle };
+    await sendWA(from, { type: 'text', text: { body: `🏪 Apni dukan/service ka naam likhe:\n\nJaise: "Ram Kirana Store"` }});
+  }
+  
+  // Step 5: Customer Details
+  else if (u.step === 'cust_details' && (text || image)) {
+    users[from] = {...u, step: 'cust_radius', details: text || 'Photo', hasImage:!!image };
+    await sendWA(from, {
+      type: 'interactive',
+      interactive: {
+        type: 'list',
+        body: { text: '📏 Kitne KM ke dayre me provider chahiye?' },
+        action: {
+          button: 'Radius',
+          sections: [{ rows: [
+            { id: 'rad_1', title: '1 KM ke andar' },
+            { id: 'rad_3', title: '3 KM ke andar' },
+            { id: 'rad_5', title: '5 KM ke andar' },
+            { id: 'rad_10', title: '10 KM ke andar' },
+            { id: 'rad_any', title: 'Kahin se bhi' }
+          ]}]
+        }
+      }
+    });
+  }
+  
+  // Step 5: Seller Name
+  else if (u.step === 'sell_name' && text) {
+    users[from] = {...u, step: 'sell_wa', shopName: text };
+    await sendWA(from, { type: 'text', text: { body: `📞 Apna WhatsApp number likhe:\n\nJaise: 9876543210` }});
+  }
+  
+  // Step 6: Customer Radius
+  else if (listId && listId.includes('rad_') && u.step === 'cust_radius') {
+    users[from] = {...u, step: 'cust_location', radius: listTitle };
+    await sendWA(from, { type: 'text', text: { body: `📍 Ab location share kare:\n\n📎 → Location → "Current location" bheje` }});
+  }
+  
+  // Step 6: Seller WhatsApp Number
+  else if (u.step === 'sell_wa' && text) {
+    users[from] = {...u, step: 'sell_location', waNum: text };
+    await sendWA(from, { type: 'text', text: { body: `📍 Dukan/Service ka location share kare:\n\n📎 → Location → "Current location" bheje` }});
+  }
+  
+  // Step 7: Customer Location - Done
+  else if (u.step === 'cust_location' && location) {
+    const finalMsg = `✅ Request Complete!\n\n📦 ${u.catTitle}\n📋 ${u.subTitle}\n📝 ${u.details}\n📏 ${u.radius}\n📍 Location: OK\n\nProvider jald contact karega.`;
+    await sendWA(from, { type: 'text', text: { body: finalMsg }});
+    console.log('CUSTOMER ORDER:', u, location);
     users[from] = { step: 'start' };
-  } 
+  }
+  
+  // Step 7: Seller Location - Register Done
+  else if (u.step === 'sell_location' && location) {
+    sellers[from] = {
+      name: u.shopName,
+      waNum: u.waNum,
+      cat: u.catTitle,
+      sub: u.subTitle,
+      lat: location.latitude,
+      lon: location.longitude
+    };
+    const finalMsg = `✅ Registration Successful!\n\n🏪 ${u.shopName}\n📞 ${u.waNum}\n📦 ${u.catTitle}\n📋 ${u.subTitle}\n📍 Location: Saved\n\nAb customers aapko dhund sakte hain!`;
+    await sendWA(from, { type: 'text', text: { body: finalMsg }});
+    console.log('NEW SELLER:', sellers[from]);
+    users[from] = { step: 'start' };
+  }
   
   else {
-    await sendWA(from, { type: 'text', text: { body: `Namaste! Shuru karne ke liye 'Hi' bheje.` }});
+    await sendWA(from, { type: 'text', text: { body: `Shuru karne ke liye 'Hi' bheje.` }});
   }
 });
 
