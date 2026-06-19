@@ -9,6 +9,7 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 console.log('Supabase Connected');
 
+// Categories - Yahan add kar jitna chahiye
 const CATEGORIES = {
   "Electronics": ["Mobile", "Laptop", "TV", "AC", "Refrigerator", "Washing Machine", "Headphones", "Camera"],
   "Grocery": ["Vegetables", "Fruits", "Dairy", "Snacks", "Beverages", "Spices", "Oil", "Rice & Flour"],
@@ -16,8 +17,6 @@ const CATEGORIES = {
   "Services": ["Plumber", "Electrician", "Carpenter", "Painter", "AC Repair", "Mobile Repair", "Tutor"],
   "Restaurant": ["North Indian", "South Indian", "Chinese", "Fast Food", "Sweets", "Bakery", "Cafe"],
   "Medical": ["Pharmacy", "Clinic", "Hospital", "Lab Test", "Dentist", "Veterinary"],
-  
-  // 👇 YE 4 NAYI LINE ADD KAR DE
   "Education": ["School", "Coaching", "Computer Class"],
   "Beauty": ["Salon", "Spa", "Makeup Artist"],
   "Automobile": ["Mechanic", "Car Wash", "Tyre Shop"],
@@ -61,7 +60,7 @@ app.post('/webhook', async (req, res) => {
       const from = message.from;
       const msgBody = message.text?.body;
       const location = message.location;
-      const image = message.image; // Photo message
+      const image = message.image;
       const buttonReply = message.interactive?.button_reply?.id;
       const listReply = message.interactive?.list_reply?.id;
       const context = message.context;
@@ -70,23 +69,39 @@ app.post('/webhook', async (req, res) => {
 
       console.log('Message from:', from, 'Name:', profileName, 'Type:', message.type);
 
-      // 1. Active Chat - Text ya Image relay
+      // 1. Cancel/Restart check - sabse pehle
+      if (msgBody && ['cancel', 'stop', 'exit', 'menu', 'restart', 'home'].includes(msgBody.toLowerCase())) {
+        if (activeChats[from]) {
+          const otherUser = activeChats[from].with;
+          delete activeChats[from];
+          delete activeChats[otherUser];
+          await sendMessage(from, 'Chat band kar di gayi ✅');
+          await sendMessage(otherUser, 'Dusre user ne chat band kar di ❌');
+          await sendMainMenu(otherUser);
+        }
+        delete userState[from];
+        await sendMessage(from, 'Process cancel kar diya ✅');
+        await sendMainMenu(from);
+        return res.status(200).send('EVENT_RECEIVED');
+      }
+
+      // 2. Active Chat - Text ya Image relay
       if (activeChats[from] && context) {
         if (msgBody) {
-          await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName, activeChats[from].name);
+          await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName);
         } else if (image) {
-          await relayImageWithQuote(from, activeChats[from].with, image, msgBody, profileName, activeChats[from].name);
+          await relayImageWithQuote(from, activeChats[from].with, image, msgBody, profileName);
         }
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 2. Seller ne "Available" button dabaya
+      // 3. Seller ne "Available" button dabaya
       if (buttonReply === 'available_btn' && context) {
         await connectBuyerSeller(from, context.id, profileName);
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 3. Normal flow
+      // 4. Normal flow
       if (buttonReply) {
         await handleButtonClick(from, buttonReply);
       }
@@ -163,12 +178,14 @@ async function handleListClick(from, listId) {
       const category = listId.replace('cat_', '');
       userState[from].data.category = category;
       userState[from].step = 'subcategory';
+      userState[from].timestamp = Date.now();
       await sendSubcategoryList(from, category, 'seller');
     }
     else if (listId.startsWith('subcat_')) {
       const subcategory = listId.replace('subcat_', '');
       userState[from].data.subcategory = subcategory;
       userState[from].step = 'name';
+      userState[from].timestamp = Date.now();
       await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apna naam bhejo:`);
     }
   }
@@ -178,12 +195,14 @@ async function handleListClick(from, listId) {
       const category = listId.replace('bcat_', '');
       userState[from].data.category = category;
       userState[from].step = 'subcategory';
+      userState[from].timestamp = Date.now();
       await sendSubcategoryList(from, category, 'buyer');
     }
     else if (listId.startsWith('bsubcat_')) {
       const subcategory = listId.replace('bsubcat_', '');
       userState[from].data.subcategory = subcategory;
       userState[from].step = 'location';
+      userState[from].timestamp = Date.now();
       await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apni location bhejo 📍`);
     }
   }
@@ -202,28 +221,47 @@ async function startSellerRegistration(to) {
     return;
   }
 
-  userState[to] = { flow: 'seller', step: 'category', data: {} };
+  userState[to] = {
+    flow: 'seller',
+    step: 'category',
+    data: {},
+    timestamp: Date.now()
+  };
   await sendCategoryList(to, 'seller');
 }
 
 // Start Buyer Search
 async function startBuyerSearch(to) {
-  userState[to] = { flow: 'buyer', step: 'category', data: {} };
+  userState[to] = {
+    flow: 'buyer',
+    step: 'category',
+    data: {},
+    timestamp: Date.now()
+  };
   await sendCategoryList(to, 'buyer');
 }
 
-// Send Category List
+// Send Category List - 10-10 ke section
 async function sendCategoryList(to, flowType) {
   const prefix = flowType === 'buyer'? 'bcat_' : 'cat_';
   const text = flowType === 'buyer'
-? 'Buyer Search shuru karte hain.\n\nKis category me search karna hai?'
-    : 'Seller Registration shuru karte hain.\n\nApni category chuno:';
+? 'Buyer Search shuru karte hain.\n\nKis category me search karna hai?\n\n_Cancel karne ke liye "cancel" type kare_'
+    : 'Seller Registration shuru karte hain.\n\nApni category chuno:\n\n_Cancel karne ke liye "cancel" type kare_';
 
-  const categoryRows = Object.keys(CATEGORIES).map(cat => ({
-    id: `${prefix}${cat}`,
-    title: cat,
-    description: `${CATEGORIES[cat].length} options`
-  }));
+  const allCategories = Object.keys(CATEGORIES);
+  const sections = [];
+
+  for (let i = 0; i < allCategories.length; i += 10) {
+    const chunk = allCategories.slice(i, i + 10);
+    sections.push({
+      title: `Categories ${i + 1}-${i + chunk.length}`,
+      rows: chunk.map(cat => ({
+        id: `${prefix}${cat}`,
+        title: cat.substring(0, 24),
+        description: `${CATEGORIES[cat].length} options`
+      }))
+    });
+  }
 
   try {
     await axios({
@@ -242,7 +280,7 @@ async function sendCategoryList(to, flowType) {
           body: { text },
           action: {
             button: 'Categories',
-            sections: [{ title: 'Select Category', rows: categoryRows }]
+            sections: sections
           }
         }
       }
@@ -257,8 +295,8 @@ async function sendSubcategoryList(to, category, flowType) {
   const subcats = CATEGORIES[category];
   const prefix = flowType === 'buyer'? 'bsubcat_' : 'subcat_';
   const text = flowType === 'buyer'
-? `${category} me kya chahiye?`
-    : `${category} me apni subcategory chuno:`;
+? `${category} me kya chahiye?\n\n_Cancel karne ke liye "cancel" type kare_`
+    : `${category} me apni subcategory chuno:\n\n_Cancel karne ke liye "cancel" type kare_`;
 
   const subcatRows = subcats.map(sub => ({
     id: `${prefix}${sub}`,
@@ -298,6 +336,15 @@ async function handleFlow(from, msgBody, location, profileName) {
   const state = userState[from];
   if (!state) return;
 
+  // Timeout check - 5 min
+  if (state.timestamp && Date.now() - state.timestamp > 5 * 60 * 1000) {
+    delete userState[from];
+    await sendMessage(from, '5 minute tak koi reply nahi aaya. Session expire ho gaya ⏰\n\nDobara shuru karne ke liye "hi" bhejo.');
+    return;
+  }
+
+  userState[from].timestamp = Date.now();
+
   // SELLER FLOW
   if (state.flow === 'seller') {
     if (state.step === 'name') {
@@ -318,9 +365,9 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data, error } = await supabase
-      .from('sellers')
-      .insert([userState[from].data])
-      .select();
+     .from('sellers')
+     .insert([userState[from].data])
+     .select();
 
           if (error) throw error;
 
@@ -346,10 +393,10 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data: sellers, error } = await supabase
-      .from('sellers')
-      .select('*')
-      .eq('category', category)
-      .eq('subcategory', subcategory);
+     .from('sellers')
+     .select('*')
+     .eq('category', category)
+     .eq('subcategory', subcategory);
 
           if (error ||!sellers?.length) {
             await sendMessage(from, `Aas-paas koi ${subcategory} nahi mila 😔`);
@@ -431,7 +478,6 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   let sellerLocation = null;
   let buyerLocation = null;
 
-  // Find buyer from pending requests
   for (const [buyer, req] of Object.entries(pendingRequests)) {
     const seller = req.sellers.find(s => s.id === sellerId);
     if (seller) {
@@ -449,7 +495,6 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
     return;
   }
 
-  // Get seller name from DB
   const { data: sellerData } = await supabase
 .from('sellers')
 .select('name, latitude, longitude')
@@ -461,18 +506,14 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
     sellerLocation = { lat: sellerData.latitude, lon: sellerData.longitude };
   }
 
-  // Create active chat with names
   activeChats[sellerId] = { with: buyerId, name: sellerDbName };
   activeChats[buyerId] = { with: sellerId, name: buyerName };
 
   const distance = getDistance(buyerLocation.latitude, buyerLocation.longitude, sellerLocation.lat, sellerLocation.lon).toFixed(1);
   const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${buyerLocation.latitude},${buyerLocation.longitude}&destination=${sellerLocation.lat},${sellerLocation.lon}`;
 
-  // Send to seller
-  const sellerMsg = await sendMessageWithId(sellerId, `✅ Aap *${buyerName}* se connect ho gaye!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye buyer ka message swipe karke reply kare.`);
-
-  // Send to buyer WITH LOCATION
-  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* available hai!\n\n📍 *Distance:* ${distance} km door\n🗺️ *Route:* ${mapsLink}\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.`);
+  const sellerMsg = await sendMessageWithId(sellerId, `✅ Aap *${buyerName}* se connect ho gaye!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye buyer ka message swipe karke reply kare.\n_Photo bhi bhej sakte ho_`);
+  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* available hai!\n\n📍 *Distance:* ${distance} km door\n🗺️ *Route:* ${mapsLink}\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.\n_Photo bhi bhej sakte ho_`);
 
   lastMessageId[sellerId] = sellerMsg;
   lastMessageId[buyerId] = buyerMsg;
@@ -481,7 +522,7 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
 }
 
 // Relay Text Message With Quote + Name
-async function relayMessageWithQuote(from, to, text, fromName, toName) {
+async function relayMessageWithQuote(from, to, text, fromName) {
   try {
     const response = await axios({
       method: 'POST',
@@ -501,14 +542,14 @@ async function relayMessageWithQuote(from, to, text, fromName, toName) {
     lastMessageId[to] = response.data.messages[0].id;
     lastMessageId[from] = response.data.messages[0].id;
 
-    console.log(`Relayed: ${fromName} -> ${toName}`);
+    console.log(`Relayed: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Error:', error.response?.data || error.message);
   }
 }
 
 // Relay Image With Quote + Name
-async function relayImageWithQuote(from, to, image, caption, fromName, toName) {
+async function relayImageWithQuote(from, to, image, caption, fromName) {
   try {
     const response = await axios({
       method: 'POST',
@@ -532,7 +573,7 @@ async function relayImageWithQuote(from, to, image, caption, fromName, toName) {
     lastMessageId[to] = response.data.messages[0].id;
     lastMessageId[from] = response.data.messages[0].id;
 
-    console.log(`Relayed Image: ${fromName} -> ${toName}`);
+    console.log(`Relayed Image: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Image Error:', error.response?.data || error.message);
   }
@@ -574,6 +615,27 @@ async function sendMessage(to, text) {
 async function sendMessageWithId(to, text) {
   return await sendMessage(to, text);
 }
+
+// Admin route - Manual seller add karne ke liye
+app.post('/admin/add-seller', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+
+  if (adminKey!== 'nearme_admin_2026') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { data, error } = await supabase
+ .from('sellers')
+ .insert([req.body])
+ .select();
+
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
