@@ -20,8 +20,8 @@ const CATEGORIES = {
 
 const userState = {};
 const pendingRequests = {};
-const activeChats = {}; // Format: { user1: { with: user2, name: 'SellerName' } }
-const lastMessageId = {}; // Track last msg ID for quoting
+const activeChats = {};
+const lastMessageId = {};
 
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -55,17 +55,22 @@ app.post('/webhook', async (req, res) => {
       const from = message.from;
       const msgBody = message.text?.body;
       const location = message.location;
+      const image = message.image; // Photo message
       const buttonReply = message.interactive?.button_reply?.id;
       const listReply = message.interactive?.list_reply?.id;
       const context = message.context;
       const contacts = value.contacts?.[0];
-      const profileName = contacts?.profile?.name || 'User'; // Buyer ka WhatsApp name
+      const profileName = contacts?.profile?.name || 'User';
 
-      console.log('Message from:', from, 'Name:', profileName);
+      console.log('Message from:', from, 'Name:', profileName, 'Type:', message.type);
 
-      // 1. Active Chat - Message relay with Quote
-      if (activeChats[from] && msgBody && context) {
-        await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName, activeChats[from].name);
+      // 1. Active Chat - Text ya Image relay
+      if (activeChats[from] && context) {
+        if (msgBody) {
+          await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName, activeChats[from].name);
+        } else if (image) {
+          await relayImageWithQuote(from, activeChats[from].with, image, msgBody, profileName, activeChats[from].name);
+        }
         return res.status(200).send('EVENT_RECEIVED');
       }
 
@@ -178,7 +183,7 @@ async function handleListClick(from, listId) {
   }
 }
 
-// Start Seller Registration - Check duplicate
+// Start Seller Registration
 async function startSellerRegistration(to) {
   const { data: existing } = await supabase
 .from('sellers')
@@ -307,9 +312,9 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data, error } = await supabase
-       .from('sellers')
-       .insert([userState[from].data])
-       .select();
+      .from('sellers')
+      .insert([userState[from].data])
+      .select();
 
           if (error) throw error;
 
@@ -335,10 +340,10 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data: sellers, error } = await supabase
-       .from('sellers')
-       .select('*')
-       .eq('category', category)
-       .eq('subcategory', subcategory);
+      .from('sellers')
+      .select('*')
+      .eq('category', category)
+      .eq('subcategory', subcategory);
 
           if (error ||!sellers?.length) {
             await sendMessage(from, `Aas-paas koi ${subcategory} nahi mila 😔`);
@@ -355,7 +360,7 @@ async function handleFlow(from, msgBody, location, profileName) {
           pendingRequests[from] = {
             subcategory,
             buyerLocation: { latitude, longitude },
-            sellers: nearby.map(s => ({ id: s.whatsapp_id, name: s.name })),
+            sellers: nearby.map(s => ({ id: s.whatsapp_id, name: s.name, lat: s.latitude, lon: s.longitude })),
             buyerName: profileName
           };
 
@@ -378,7 +383,7 @@ async function handleFlow(from, msgBody, location, profileName) {
   }
 }
 
-// Send Request to Seller - With Buyer Name
+// Send Request to Seller
 async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   try {
     const response = await axios({
@@ -412,18 +417,23 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   }
 }
 
-// Connect Buyer & Seller - Save Names
+// Connect Buyer & Seller - Send Location to Buyer
 async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   let buyerId = null;
   let buyerName = 'Buyer';
   let sellerDbName = sellerProfileName;
+  let sellerLocation = null;
+  let buyerLocation = null;
 
   // Find buyer from pending requests
   for (const [buyer, req] of Object.entries(pendingRequests)) {
-    if (req.sellers.some(s => s.id === sellerId)) {
+    const seller = req.sellers.find(s => s.id === sellerId);
+    if (seller) {
       buyerId = buyer;
       buyerName = req.buyerName;
-      sellerDbName = req.sellers.find(s => s.id === sellerId)?.name || sellerProfileName;
+      sellerDbName = seller.name;
+      sellerLocation = { lat: seller.lat, lon: seller.lon };
+      buyerLocation = req.buyerLocation;
       break;
     }
   }
@@ -436,18 +446,27 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   // Get seller name from DB
   const { data: sellerData } = await supabase
 .from('sellers')
-.select('name')
+.select('name, latitude, longitude')
 .eq('whatsapp_id', sellerId)
 .single();
 
-  if (sellerData) sellerDbName = sellerData.name;
+  if (sellerData) {
+    sellerDbName = sellerData.name;
+    sellerLocation = { lat: sellerData.latitude, lon: sellerData.longitude };
+  }
 
   // Create active chat with names
   activeChats[sellerId] = { with: buyerId, name: sellerDbName };
   activeChats[buyerId] = { with: sellerId, name: buyerName };
 
+  const distance = getDistance(buyerLocation.latitude, buyerLocation.longitude, sellerLocation.lat, sellerLocation.lon).toFixed(1);
+  const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${buyerLocation.latitude},${buyerLocation.longitude}&destination=${sellerLocation.lat},${sellerLocation.lon}`;
+
+  // Send to seller
   const sellerMsg = await sendMessageWithId(sellerId, `✅ Aap *${buyerName}* se connect ho gaye!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye buyer ka message swipe karke reply kare.`);
-  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* available hai!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.`);
+
+  // Send to buyer WITH LOCATION
+  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* available hai!\n\n📍 *Distance:* ${distance} km door\n🗺️ *Route:* ${mapsLink}\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.`);
 
   lastMessageId[sellerId] = sellerMsg;
   lastMessageId[buyerId] = buyerMsg;
@@ -455,7 +474,7 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   delete pendingRequests[buyerId];
 }
 
-// Relay Message With Quote + Name
+// Relay Text Message With Quote + Name
 async function relayMessageWithQuote(from, to, text, fromName, toName) {
   try {
     const response = await axios({
@@ -469,17 +488,47 @@ async function relayMessageWithQuote(from, to, text, fromName, toName) {
         messaging_product: 'whatsapp',
         to: to,
         context: lastMessageId[to]? { message_id: lastMessageId[to] } : undefined,
-        text: { body: `*${fromName}*\n${text}` } // Name dikhega, number nahi
+        text: { body: `*${fromName}*\n${text}` }
       }
     });
 
-    // Update last message ID for next quote
     lastMessageId[to] = response.data.messages[0].id;
     lastMessageId[from] = response.data.messages[0].id;
 
     console.log(`Relayed: ${fromName} -> ${toName}`);
   } catch (error) {
     console.log('Relay Error:', error.response?.data || error.message);
+  }
+}
+
+// Relay Image With Quote + Name
+async function relayImageWithQuote(from, to, image, caption, fromName, toName) {
+  try {
+    const response = await axios({
+      method: 'POST',
+      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      headers: {
+        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        messaging_product: 'whatsapp',
+        to: to,
+        context: lastMessageId[to]? { message_id: lastMessageId[to] } : undefined,
+        type: 'image',
+        image: {
+          id: image.id,
+          caption: `*${fromName}*\n${caption || ''}`
+        }
+      }
+    });
+
+    lastMessageId[to] = response.data.messages[0].id;
+    lastMessageId[from] = response.data.messages[0].id;
+
+    console.log(`Relayed Image: ${fromName} -> ${toName}`);
+  } catch (error) {
+    console.log('Relay Image Error:', error.response?.data || error.message);
   }
 }
 
