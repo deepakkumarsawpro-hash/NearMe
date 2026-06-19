@@ -1,12 +1,19 @@
 const express = require('express');
 const axios = require('axios');
-const mongoose = require('mongoose');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
-// 0. Categories + Subcategories - Sab yahi hai
+// 0. Supabase Connect - Bas ye 2 lines
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+console.log('Supabase Connected');
+
+// 1. Categories + Subcategories - Sab yahi hai
 const CATEGORIES = {
   "Electronics": [
     "Mobile", "Laptop", "TV", "AC", "Refrigerator", "Washing Machine", "Headphones", "Camera"
@@ -28,31 +35,10 @@ const CATEGORIES = {
   ]
 };
 
-// 1. MongoDB Connect
-mongoose.connect(process.env.MONGODB_URI)
-.then(() => console.log('MongoDB Connected'))
-.catch(err => console.log('MongoDB Error:', err));
-
-// 2. Seller Schema - Category + Subcategory ke saath
-const sellerSchema = new mongoose.Schema({
-  name: String,
-  phone: String,
-  category: String,
-  subcategory: String,
-  location: {
-    latitude: Number,
-    longitude: Number
-  },
-  whatsapp_id: String,
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Seller = mongoose.model('Seller', sellerSchema);
-
-// 3. Temporary storage for registration flow
+// 2. Temporary storage for registration flow
 const userState = {};
 
-// 4. Webhook Verification - GET
+// 3. Webhook Verification - GET
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
   const mode = req.query['hub.mode'];
@@ -69,7 +55,7 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// 5. Webhook for Messages - POST
+// 4. Webhook for Messages - POST
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -90,19 +76,15 @@ app.post('/webhook', async (req, res) => {
 
       console.log('Message from:', from);
 
-      // Handle button clicks
       if (buttonReply) {
         await handleButtonClick(from, buttonReply);
       }
-      // Handle list selection
       else if (listReply) {
         await handleListClick(from, listReply);
       }
-      // Handle registration flow
       else if (userState[from]) {
         await handleRegistration(from, msgBody, location);
       }
-      // Start new conversation
       else if (msgBody) {
         if (msgBody.toLowerCase() === 'hi' || msgBody.toLowerCase() === 'hello') {
           await sendMainMenu(from);
@@ -121,7 +103,7 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// 6. Send Main Menu with Buttons
+// 5. Send Main Menu with Buttons
 async function sendMainMenu(to) {
   try {
     await axios({
@@ -154,7 +136,7 @@ async function sendMainMenu(to) {
   }
 }
 
-// 7. Handle Button Clicks
+// 6. Handle Button Clicks
 async function handleButtonClick(from, buttonId) {
   if (buttonId === 'seller_btn') {
     await startSellerRegistration(from);
@@ -163,7 +145,7 @@ async function handleButtonClick(from, buttonId) {
   }
 }
 
-// 8. Handle List Clicks - Category/Subcategory selection
+// 7. Handle List Clicks
 async function handleListClick(from, listId) {
   if (listId.startsWith('cat_')) {
     const category = listId.replace('cat_', '');
@@ -179,7 +161,7 @@ async function handleListClick(from, listId) {
   }
 }
 
-// 9. Start Seller Registration - Show Category List
+// 8. Start Seller Registration
 async function startSellerRegistration(to) {
   userState[to] = { step: 'category', data: {} };
 
@@ -221,7 +203,7 @@ async function startSellerRegistration(to) {
   }
 }
 
-// 10. Send Subcategory List
+// 9. Send Subcategory List
 async function sendSubcategoryList(to, category) {
   const subcats = CATEGORIES[category];
   if (!subcats) {
@@ -231,7 +213,7 @@ async function sendSubcategoryList(to, category) {
 
   const subcatRows = subcats.map(sub => ({
     id: `subcat_${sub}`,
-    title: sub.substring(0, 24), // Max 24 chars
+    title: sub.substring(0, 24),
     description: category
   }));
 
@@ -267,7 +249,7 @@ async function sendSubcategoryList(to, category) {
   }
 }
 
-// 11. Registration Handler Function
+// 10. Registration Handler Function - Supabase me Save
 async function handleRegistration(from, msgBody, location) {
   const currentStep = userState[from].step;
 
@@ -277,7 +259,7 @@ async function handleRegistration(from, msgBody, location) {
       userState[from].step = 'subcategory';
       await sendSubcategoryList(from, msgBody);
     } else {
-      await sendMessage(from, 'Ye category available nahi hai. List se chuno ya sahi naam likho.');
+      await sendMessage(from, 'Ye category available nahi hai. List se chuno.');
     }
   }
   else if (currentStep === 'subcategory') {
@@ -297,18 +279,21 @@ async function handleRegistration(from, msgBody, location) {
   }
   else if (currentStep === 'location') {
     if (location) {
-      userState[from].data.location = {
-        latitude: location.latitude,
-        longitude: location.longitude
-      };
+      userState[from].data.latitude = location.latitude;
+      userState[from].data.longitude = location.longitude;
       userState[from].data.whatsapp_id = from;
 
-      // Save to MongoDB
+      // Save to Supabase
       try {
-        const newSeller = new Seller(userState[from].data);
-        await newSeller.save();
+        const { data, error } = await supabase
+         .from('sellers')
+         .insert([userState[from].data])
+         .select();
+
+        if (error) throw error;
+
         await sendMessage(from, `🎉 Badhai ho! Aap NearMe par register ho gaye.\n\nCategory: ${userState[from].data.category}\nSubcategory: ${userState[from].data.subcategory}\n\nAb buyers aapko dhoond payenge.`);
-        console.log('New Seller Saved:', newSeller);
+        console.log('New Seller Saved:', data);
       } catch (error) {
         console.log('DB Save Error:', error);
         await sendMessage(from, 'Kuch error aa gaya. Baad me try karna.');
@@ -321,7 +306,7 @@ async function handleRegistration(from, msgBody, location) {
   }
 }
 
-// 12. Send Simple Text Message
+// 11. Send Simple Text Message
 async function sendMessage(to, text) {
   try {
     await axios({
@@ -343,7 +328,7 @@ async function sendMessage(to, text) {
   }
 }
 
-// 13. Start Server
+// 12. Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
