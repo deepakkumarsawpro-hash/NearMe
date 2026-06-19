@@ -6,36 +6,24 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 
-// 0. Supabase Connect - Bas ye 2 lines
+// 0. Supabase Connect
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY
 );
 console.log('Supabase Connected');
 
-// 1. Categories + Subcategories - Sab yahi hai
+// 1. Categories + Subcategories
 const CATEGORIES = {
-  "Electronics": [
-    "Mobile", "Laptop", "TV", "AC", "Refrigerator", "Washing Machine", "Headphones", "Camera"
-  ],
-  "Grocery": [
-    "Vegetables", "Fruits", "Dairy", "Snacks", "Beverages", "Spices", "Oil", "Rice & Flour"
-  ],
-  "Clothes": [
-    "Men Wear", "Women Wear", "Kids Wear", "Saree", "Shoes", "Jeans", "T-Shirts", "Winter Wear"
-  ],
-  "Services": [
-    "Plumber", "Electrician", "Carpenter", "Painter", "AC Repair", "Mobile Repair", "Tutor"
-  ],
-  "Restaurant": [
-    "North Indian", "South Indian", "Chinese", "Fast Food", "Sweets", "Bakery", "Cafe"
-  ],
-  "Medical": [
-    "Pharmacy", "Clinic", "Hospital", "Lab Test", "Dentist", "Veterinary"
-  ]
+  "Electronics": ["Mobile", "Laptop", "TV", "AC", "Refrigerator", "Washing Machine", "Headphones", "Camera"],
+  "Grocery": ["Vegetables", "Fruits", "Dairy", "Snacks", "Beverages", "Spices", "Oil", "Rice & Flour"],
+  "Clothes": ["Men Wear", "Women Wear", "Kids Wear", "Saree", "Shoes", "Jeans", "T-Shirts", "Winter Wear"],
+  "Services": ["Plumber", "Electrician", "Carpenter", "Painter", "AC Repair", "Mobile Repair", "Tutor"],
+  "Restaurant": ["North Indian", "South Indian", "Chinese", "Fast Food", "Sweets", "Bakery", "Cafe"],
+  "Medical": ["Pharmacy", "Clinic", "Hospital", "Lab Test", "Dentist", "Veterinary"]
 };
 
-// 2. Temporary storage for registration flow
+// 2. Temporary storage for flows
 const userState = {};
 
 // 3. Webhook Verification - GET
@@ -83,7 +71,7 @@ app.post('/webhook', async (req, res) => {
         await handleListClick(from, listReply);
       }
       else if (userState[from]) {
-        await handleRegistration(from, msgBody, location);
+        await handleFlow(from, msgBody, location);
       }
       else if (msgBody) {
         if (msgBody.toLowerCase() === 'hi' || msgBody.toLowerCase() === 'hello') {
@@ -93,7 +81,7 @@ app.post('/webhook', async (req, res) => {
           await startSellerRegistration(from);
         }
         else if (msgBody.toLowerCase() === 'buyer') {
-          await sendMessage(from, 'Buyer feature jald aa raha hai. Abhi Seller register kar sakte ho.');
+          await startBuyerSearch(from);
         }
       }
     }
@@ -141,34 +129,71 @@ async function handleButtonClick(from, buttonId) {
   if (buttonId === 'seller_btn') {
     await startSellerRegistration(from);
   } else if (buttonId === 'buyer_btn') {
-    await sendMessage(from, 'Buyer feature jald aa raha hai.');
+    await startBuyerSearch(from);
   }
 }
 
-// 7. Handle List Clicks
+// 7. Handle List Clicks - Seller + Buyer Dono
 async function handleListClick(from, listId) {
-  if (listId.startsWith('cat_')) {
-    const category = listId.replace('cat_', '');
-    userState[from].data.category = category;
-    userState[from].step = 'subcategory';
-    await sendSubcategoryList(from, category);
+  const state = userState[from];
+  if (!state) return;
+
+  // Seller Flow
+  if (state.flow === 'seller') {
+    if (listId.startsWith('cat_')) {
+      const category = listId.replace('cat_', '');
+      userState[from].data.category = category;
+      userState[from].step = 'subcategory';
+      await sendSubcategoryList(from, category, 'seller');
+    }
+    else if (listId.startsWith('subcat_')) {
+      const subcategory = listId.replace('subcat_', '');
+      userState[from].data.subcategory = subcategory;
+      userState[from].step = 'name';
+      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apna naam bhejo:`);
+    }
   }
-  else if (listId.startsWith('subcat_')) {
-    const subcategory = listId.replace('subcat_', '');
-    userState[from].data.subcategory = subcategory;
-    userState[from].step = 'name';
-    await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apna naam bhejo:`);
+
+  // Buyer Flow
+  if (state.flow === 'buyer') {
+    if (listId.startsWith('bcat_')) {
+      const category = listId.replace('bcat_', '');
+      userState[from].data.category = category;
+      userState[from].step = 'subcategory';
+      await sendSubcategoryList(from, category, 'buyer');
+    }
+    else if (listId.startsWith('bsubcat_')) {
+      const subcategory = listId.replace('bsubcat_', '');
+      userState[from].data.subcategory = subcategory;
+      userState[from].step = 'location';
+      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apni location bhejo 📍\nTaaki aas-paas ke sellers dhoond saku`);
+    }
   }
 }
 
 // 8. Start Seller Registration
 async function startSellerRegistration(to) {
-  userState[to] = { step: 'category', data: {} };
+  userState[to] = { flow: 'seller', step: 'category', data: {} };
+  await sendCategoryList(to, 'seller');
+}
+
+// 9. Start Buyer Search
+async function startBuyerSearch(to) {
+  userState[to] = { flow: 'buyer', step: 'category', data: {} };
+  await sendCategoryList(to, 'buyer');
+}
+
+// 10. Send Category List - Universal
+async function sendCategoryList(to, flowType) {
+  const prefix = flowType === 'buyer'? 'bcat_' : 'cat_';
+  const text = flowType === 'buyer'
+   ? 'Buyer Search shuru karte hain.\n\nKis category me search karna hai?'
+    : 'Seller Registration shuru karte hain.\n\nApni category chuno:';
 
   const categoryRows = Object.keys(CATEGORIES).map(cat => ({
-    id: `cat_${cat}`,
+    id: `${prefix}${cat}`,
     title: cat,
-    description: `${CATEGORIES[cat].length} subcategories`
+    description: `${CATEGORIES[cat].length} options`
   }));
 
   try {
@@ -185,15 +210,10 @@ async function startSellerRegistration(to) {
         type: 'interactive',
         interactive: {
           type: 'list',
-          body: {
-            text: 'Seller Registration shuru karte hain.\n\nApni category chuno:'
-          },
+          body: { text },
           action: {
             button: 'Categories',
-            sections: [{
-              title: 'Select Category',
-              rows: categoryRows
-            }]
+            sections: [{ title: 'Select Category', rows: categoryRows }]
           }
         }
       }
@@ -203,16 +223,21 @@ async function startSellerRegistration(to) {
   }
 }
 
-// 9. Send Subcategory List
-async function sendSubcategoryList(to, category) {
+// 11. Send Subcategory List - Universal
+async function sendSubcategoryList(to, category, flowType) {
   const subcats = CATEGORIES[category];
   if (!subcats) {
     await sendMessage(to, 'Galat category. Phir se try karo.');
     return;
   }
 
+  const prefix = flowType === 'buyer'? 'bsubcat_' : 'subcat_';
+  const text = flowType === 'buyer'
+   ? `${category} me kya chahiye?`
+    : `${category} me apni subcategory chuno:`;
+
   const subcatRows = subcats.map(sub => ({
-    id: `subcat_${sub}`,
+    id: `${prefix}${sub}`,
     title: sub.substring(0, 24),
     description: category
   }));
@@ -231,15 +256,10 @@ async function sendSubcategoryList(to, category) {
         type: 'interactive',
         interactive: {
           type: 'list',
-          body: {
-            text: `${category} me apni subcategory chuno:`
-          },
+          body: { text },
           action: {
             button: 'Subcategories',
-            sections: [{
-              title: `${category} Options`,
-              rows: subcatRows
-            }]
+            sections: [{ title: `${category} Options`, rows: subcatRows }]
           }
         }
       }
@@ -249,64 +269,105 @@ async function sendSubcategoryList(to, category) {
   }
 }
 
-// 10. Registration Handler Function - Supabase me Save
-async function handleRegistration(from, msgBody, location) {
-  const currentStep = userState[from].step;
+// 12. Flow Handler - Seller + Buyer Dono
+async function handleFlow(from, msgBody, location) {
+  const state = userState[from];
+  if (!state) return;
 
-  if (currentStep === 'category') {
-    if (CATEGORIES[msgBody]) {
-      userState[from].data.category = msgBody;
-      userState[from].step = 'subcategory';
-      await sendSubcategoryList(from, msgBody);
-    } else {
-      await sendMessage(from, 'Ye category available nahi hai. List se chuno.');
+  // SELLER FLOW
+  if (state.flow === 'seller') {
+    if (state.step === 'name') {
+      userState[from].data.name = msgBody;
+      userState[from].step = 'phone';
+      await sendMessage(from, 'Naam save ho gaya ✅\n\nAb apna phone number bhejo:');
+    }
+    else if (state.step === 'phone') {
+      userState[from].data.phone = msgBody;
+      userState[from].step = 'location';
+      await sendMessage(from, 'Phone save ho gaya ✅\n\nAb WhatsApp ka Location button dabake apni location bhejo 📍');
+    }
+    else if (state.step === 'location') {
+      if (location) {
+        userState[from].data.latitude = location.latitude;
+        userState[from].data.longitude = location.longitude;
+        userState[from].data.whatsapp_id = from;
+
+        try {
+          const { data, error } = await supabase
+          .from('sellers')
+          .insert([userState[from].data])
+          .select();
+
+          if (error) throw error;
+
+          await sendMessage(from, `🎉 Badhai ho! Aap NearMe par register ho gaye.\n\nCategory: ${userState[from].data.category}\nSubcategory: ${userState[from].data.subcategory}\n\nAb buyers aapko dhoond payenge.`);
+          console.log('New Seller Saved:', data);
+        } catch (error) {
+          console.log('DB Save Error:', error);
+          await sendMessage(from, 'Kuch error aa gaya. Baad me try karna.');
+        }
+        delete userState[from];
+      } else {
+        await sendMessage(from, 'Location nahi mili. 📍 button se location bhejo.');
+      }
     }
   }
-  else if (currentStep === 'subcategory') {
-    userState[from].data.subcategory = msgBody;
-    userState[from].step = 'name';
-    await sendMessage(from, `Subcategory: ${msgBody} ✅\n\nAb apna naam bhejo:`);
-  }
-  else if (currentStep === 'name') {
-    userState[from].data.name = msgBody;
-    userState[from].step = 'phone';
-    await sendMessage(from, 'Naam save ho gaya ✅\n\nAb apna phone number bhejo:');
-  }
-  else if (currentStep === 'phone') {
-    userState[from].data.phone = msgBody;
-    userState[from].step = 'location';
-    await sendMessage(from, 'Phone save ho gaya ✅\n\nAb WhatsApp ka Location button dabake apni location bhejo 📍');
-  }
-  else if (currentStep === 'location') {
-    if (location) {
-      userState[from].data.latitude = location.latitude;
-      userState[from].data.longitude = location.longitude;
-      userState[from].data.whatsapp_id = from;
 
-      // Save to Supabase
-      try {
-        const { data, error } = await supabase
-         .from('sellers')
-         .insert([userState[from].data])
-         .select();
+  // BUYER FLOW
+  if (state.flow === 'buyer') {
+    if (state.step === 'location') {
+      if (location) {
+        const { category, subcategory } = state.data;
+        const { latitude, longitude } = location;
 
-        if (error) throw error;
+        try {
+          const { data: sellers, error } = await supabase
+           .from('sellers')
+           .select('*')
+           .eq('category', category)
+           .eq('subcategory', subcategory);
 
-        await sendMessage(from, `🎉 Badhai ho! Aap NearMe par register ho gaye.\n\nCategory: ${userState[from].data.category}\nSubcategory: ${userState[from].data.subcategory}\n\nAb buyers aapko dhoond payenge.`);
-        console.log('New Seller Saved:', data);
-      } catch (error) {
-        console.log('DB Save Error:', error);
-        await sendMessage(from, 'Kuch error aa gaya. Baad me try karna.');
+          if (error ||!sellers?.length) {
+            await sendMessage(from, `Aas-paas koi ${subcategory} nahi mila 😔`);
+            return delete userState[from];
+          }
+
+          const nearby = sellers.filter(s => getDistance(latitude, longitude, s.latitude, s.longitude) <= 5);
+
+          if (!nearby.length) {
+            await sendMessage(from, '5km ke andar koi nahi mila 😔');
+            return delete userState[from];
+          }
+
+          let reply = `Aapke aas-paas ke ${subcategory}:\n\n`;
+          nearby.slice(0, 5).forEach((s, i) => {
+            const dist = getDistance(latitude, longitude, s.latitude, s.longitude).toFixed(1);
+            reply += `${i+1}. ${s.name}\n📞 ${s.phone}\n📍 ${dist}km door\n\n`;
+          });
+
+          await sendMessage(from, reply);
+        } catch (error) {
+          console.log('Search Error:', error);
+          await sendMessage(from, 'Search me error aa gaya. Baad me try karna.');
+        }
+        delete userState[from];
+      } else {
+        await sendMessage(from, 'Location nahi mili. 📍 button se location bhejo.');
       }
-
-      delete userState[from];
-    } else {
-      await sendMessage(from, 'Location nahi mili. 📍 button se location bhejo.');
     }
   }
 }
 
-// 11. Send Simple Text Message
+// 13. Distance Calculator
+function getDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// 14. Send Simple Text Message
 async function sendMessage(to, text) {
   try {
     await axios({
@@ -328,7 +389,7 @@ async function sendMessage(to, text) {
   }
 }
 
-// 12. Start Server
+// 15. Start Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
