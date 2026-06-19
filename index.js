@@ -148,8 +148,8 @@ async function sendMainMenu(to) {
           body: { text: 'Hi! NearMe me apka swagat hai 👋\n\nKya karna chahte ho?' },
           action: {
             buttons: [
-              { type: 'reply', reply: { id: 'seller_btn', title: 'Seller/Service Register' } },
-              { type: 'reply', reply: { id: 'buyer_btn', title: 'Customer Search' } }
+              { type: 'reply', reply: { id: 'seller_btn', title: 'Seller Register' } },
+              { type: 'reply', reply: { id: 'buyer_btn', title: 'Buyer Search' } }
             ]
           }
         }
