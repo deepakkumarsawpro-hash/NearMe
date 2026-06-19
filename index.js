@@ -19,8 +19,9 @@ const CATEGORIES = {
 };
 
 const userState = {};
-const pendingRequests = {}; // buyer_id: { sellers: [], subcategory: '', buyerLocation: {} }
-const activeChats = {}; // seller_id: buyer_id OR buyer_id: seller_id
+const pendingRequests = {};
+const activeChats = {}; // Format: { user1: { with: user2, name: 'SellerName' } }
+const lastMessageId = {}; // Track last msg ID for quoting
 
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -49,25 +50,28 @@ app.post('/webhook', async (req, res) => {
       body.entry[0].changes[0].value.messages &&
       body.entry[0].changes[0].value.messages[0]
     ) {
-      const message = body.entry[0].changes[0].value.messages[0];
+      const value = body.entry[0].changes[0].value;
+      const message = value.messages[0];
       const from = message.from;
       const msgBody = message.text?.body;
       const location = message.location;
       const buttonReply = message.interactive?.button_reply?.id;
       const listReply = message.interactive?.list_reply?.id;
-      const context = message.context; // Reply to message wala
+      const context = message.context;
+      const contacts = value.contacts?.[0];
+      const profileName = contacts?.profile?.name || 'User'; // Buyer ka WhatsApp name
 
-      console.log('Message from:', from);
+      console.log('Message from:', from, 'Name:', profileName);
 
-      // 1. Active Chat - Message relay
+      // 1. Active Chat - Message relay with Quote
       if (activeChats[from] && msgBody && context) {
-        await relayMessage(from, activeChats[from], msgBody);
+        await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName, activeChats[from].name);
         return res.status(200).send('EVENT_RECEIVED');
       }
 
       // 2. Seller ne "Available" button dabaya
       if (buttonReply === 'available_btn' && context) {
-        await connectBuyerSeller(from, context.id);
+        await connectBuyerSeller(from, context.id, profileName);
         return res.status(200).send('EVENT_RECEIVED');
       }
 
@@ -79,7 +83,7 @@ app.post('/webhook', async (req, res) => {
         await handleListClick(from, listReply);
       }
       else if (userState[from]) {
-        await handleFlow(from, msgBody, location);
+        await handleFlow(from, msgBody, location, profileName);
       }
       else if (msgBody) {
         if (msgBody.toLowerCase() === 'hi' || msgBody.toLowerCase() === 'hello') {
@@ -176,15 +180,14 @@ async function handleListClick(from, listId) {
 
 // Start Seller Registration - Check duplicate
 async function startSellerRegistration(to) {
-  // CHECK: Kya ye number already registered hai?
   const { data: existing } = await supabase
-  .from('sellers')
-  .select('id')
-  .eq('whatsapp_id', to)
-  .single();
+.from('sellers')
+.select('id, name')
+.eq('whatsapp_id', to)
+.single();
 
   if (existing) {
-    await sendMessage(to, 'Aap is number se already register ho ❌\n\nEk WhatsApp number se ek hi seller register ho sakta hai.');
+    await sendMessage(to, `Aap already register ho: ${existing.name} ✅\n\nEk WhatsApp number se ek hi seller register ho sakta hai.`);
     return;
   }
 
@@ -202,7 +205,7 @@ async function startBuyerSearch(to) {
 async function sendCategoryList(to, flowType) {
   const prefix = flowType === 'buyer'? 'bcat_' : 'cat_';
   const text = flowType === 'buyer'
-  ? 'Buyer Search shuru karte hain.\n\nKis category me search karna hai?'
+? 'Buyer Search shuru karte hain.\n\nKis category me search karna hai?'
     : 'Seller Registration shuru karte hain.\n\nApni category chuno:';
 
   const categoryRows = Object.keys(CATEGORIES).map(cat => ({
@@ -243,7 +246,7 @@ async function sendSubcategoryList(to, category, flowType) {
   const subcats = CATEGORIES[category];
   const prefix = flowType === 'buyer'? 'bsubcat_' : 'subcat_';
   const text = flowType === 'buyer'
-  ? `${category} me kya chahiye?`
+? `${category} me kya chahiye?`
     : `${category} me apni subcategory chuno:`;
 
   const subcatRows = subcats.map(sub => ({
@@ -280,7 +283,7 @@ async function sendSubcategoryList(to, category, flowType) {
 }
 
 // Flow Handler
-async function handleFlow(from, msgBody, location) {
+async function handleFlow(from, msgBody, location, profileName) {
   const state = userState[from];
   if (!state) return;
 
@@ -304,9 +307,9 @@ async function handleFlow(from, msgBody, location) {
 
         try {
           const { data, error } = await supabase
-         .from('sellers')
-         .insert([userState[from].data])
-         .select();
+       .from('sellers')
+       .insert([userState[from].data])
+       .select();
 
           if (error) throw error;
 
@@ -323,7 +326,7 @@ async function handleFlow(from, msgBody, location) {
     }
   }
 
-  // BUYER FLOW - Broadcast to Sellers
+  // BUYER FLOW
   if (state.flow === 'buyer') {
     if (state.step === 'location') {
       if (location) {
@@ -332,10 +335,10 @@ async function handleFlow(from, msgBody, location) {
 
         try {
           const { data: sellers, error } = await supabase
-         .from('sellers')
-         .select('*')
-         .eq('category', category)
-         .eq('subcategory', subcategory);
+       .from('sellers')
+       .select('*')
+       .eq('category', category)
+       .eq('subcategory', subcategory);
 
           if (error ||!sellers?.length) {
             await sendMessage(from, `Aas-paas koi ${subcategory} nahi mila 😔`);
@@ -349,21 +352,20 @@ async function handleFlow(from, msgBody, location) {
             return delete userState[from];
           }
 
-          // Save request for tracking
           pendingRequests[from] = {
             subcategory,
             buyerLocation: { latitude, longitude },
-            sellers: nearby.map(s => s.whatsapp_id)
+            sellers: nearby.map(s => ({ id: s.whatsapp_id, name: s.name })),
+            buyerName: profileName
           };
 
-          // Broadcast to all nearby sellers
           let sentCount = 0;
           for (const seller of nearby) {
-            const sentMsg = await sendRequestToSeller(seller.whatsapp_id, subcategory, from);
+            const sentMsg = await sendRequestToSeller(seller.whatsapp_id, subcategory, from, profileName);
             if (sentMsg) sentCount++;
           }
 
-          await sendMessage(from, `✅ ${sentCount} sellers ko request bhej di gayi hai.\n\nJo seller "Available" bolega, usse aapki chat start ho jayegi.\n\nReply karne ke liye seller ke message ko swipe karke reply kare.`);
+          await sendMessage(from, `✅ ${sentCount} sellers ko request bhej di gayi hai.\n\nJo seller "Available" bolega, usse aapki chat start ho jayegi.\n\n⚠️ Reply karne ke liye seller ke message ko swipe karke reply kare.`);
         } catch (error) {
           console.log('Search Error:', error);
           await sendMessage(from, 'Search me error aa gaya. Baad me try karna.');
@@ -376,8 +378,8 @@ async function handleFlow(from, msgBody, location) {
   }
 }
 
-// Send Request to Seller
-async function sendRequestToSeller(sellerId, subcategory, buyerId) {
+// Send Request to Seller - With Buyer Name
+async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   try {
     const response = await axios({
       method: 'POST',
@@ -393,7 +395,7 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId) {
         interactive: {
           type: 'button',
           body: {
-            text: `🔔 Nayi Request!\n\nEk customer ko ${subcategory} chahiye aapke area me.\n\nKya aap available ho?`
+            text: `🔔 Nayi Request!\n\n*${buyerName}* ko ${subcategory} chahiye aapke area me.\n\nKya aap available ho?`
           },
           action: {
             buttons: [
@@ -403,20 +405,25 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId) {
         }
       }
     });
-    return response.data.messages[0].id; // Message ID for context
+    return response.data.messages[0].id;
   } catch (error) {
     console.log('Error sending to seller:', error.response?.data || error.message);
     return null;
   }
 }
 
-// Connect Buyer & Seller
-async function connectBuyerSeller(sellerId, messageId) {
-  // Find which buyer sent this request
+// Connect Buyer & Seller - Save Names
+async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   let buyerId = null;
+  let buyerName = 'Buyer';
+  let sellerDbName = sellerProfileName;
+
+  // Find buyer from pending requests
   for (const [buyer, req] of Object.entries(pendingRequests)) {
-    if (req.sellers.includes(sellerId)) {
+    if (req.sellers.some(s => s.id === sellerId)) {
       buyerId = buyer;
+      buyerName = req.buyerName;
+      sellerDbName = req.sellers.find(s => s.id === sellerId)?.name || sellerProfileName;
       break;
     }
   }
@@ -426,21 +433,32 @@ async function connectBuyerSeller(sellerId, messageId) {
     return;
   }
 
-  // Create active chat
-  activeChats[sellerId] = buyerId;
-  activeChats[buyerId] = sellerId;
+  // Get seller name from DB
+  const { data: sellerData } = await supabase
+.from('sellers')
+.select('name')
+.eq('whatsapp_id', sellerId)
+.single();
 
-  await sendMessage(sellerId, '✅ Aap buyer se connect ho gaye!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye buyer ka message swipe karke reply kare.');
-  await sendMessage(buyerId, '✅ Seller available hai!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.');
+  if (sellerData) sellerDbName = sellerData.name;
 
-  // Delete pending request
+  // Create active chat with names
+  activeChats[sellerId] = { with: buyerId, name: sellerDbName };
+  activeChats[buyerId] = { with: sellerId, name: buyerName };
+
+  const sellerMsg = await sendMessageWithId(sellerId, `✅ Aap *${buyerName}* se connect ho gaye!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye buyer ka message swipe karke reply kare.`);
+  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* available hai!\n\nAb aap direct baat kar sakte ho.\n\n⚠️ Reply karne ke liye seller ka message swipe karke reply kare.`);
+
+  lastMessageId[sellerId] = sellerMsg;
+  lastMessageId[buyerId] = buyerMsg;
+
   delete pendingRequests[buyerId];
 }
 
-// Relay Message Between Buyer & Seller
-async function relayMessage(from, to, text) {
+// Relay Message With Quote + Name
+async function relayMessageWithQuote(from, to, text, fromName, toName) {
   try {
-    await axios({
+    const response = await axios({
       method: 'POST',
       url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
       headers: {
@@ -450,10 +468,16 @@ async function relayMessage(from, to, text) {
       data: {
         messaging_product: 'whatsapp',
         to: to,
-        text: { body: text }
+        context: lastMessageId[to]? { message_id: lastMessageId[to] } : undefined,
+        text: { body: `*${fromName}*\n${text}` } // Name dikhega, number nahi
       }
     });
-    console.log(`Relayed: ${from} -> ${to}`);
+
+    // Update last message ID for next quote
+    lastMessageId[to] = response.data.messages[0].id;
+    lastMessageId[from] = response.data.messages[0].id;
+
+    console.log(`Relayed: ${fromName} -> ${toName}`);
   } catch (error) {
     console.log('Relay Error:', error.response?.data || error.message);
   }
@@ -471,7 +495,7 @@ function getDistance(lat1, lon1, lat2, lon2) {
 // Send Simple Message
 async function sendMessage(to, text) {
   try {
-    await axios({
+    const response = await axios({
       method: 'POST',
       url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
       headers: {
@@ -484,10 +508,16 @@ async function sendMessage(to, text) {
         text: { body: text }
       }
     });
-    console.log('Message sent to:', to);
+    return response.data.messages[0].id;
   } catch (error) {
     console.log('Error sending message:', error.response?.data || error.message);
+    return null;
   }
+}
+
+// Send Message and Return ID
+async function sendMessageWithId(to, text) {
+  return await sendMessage(to, text);
 }
 
 const PORT = process.env.PORT || 3000;
