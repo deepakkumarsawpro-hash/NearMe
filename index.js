@@ -16,6 +16,10 @@ const CATEGORIES = {
   "Services": ["Plumber", "Electrician", "Carpenter", "Painter", "AC Repair", "Mobile Repair", "Tutor"],
   "Restaurant": ["North Indian", "South Indian", "Chinese", "Fast Food", "Sweets", "Bakery", "Cafe"],
   "Medical": ["Pharmacy", "Clinic", "Hospital", "Lab Test", "Dentist", "Veterinary"]
+  "Education": ["School", "Coaching", "Computer Class"],
+  "Beauty": ["Salon", "Spa", "Makeup Artist"],
+  "Automobile": ["Mechanic", "Car Wash", "Tyre Shop"],
+  "Real Estate": ["Property Dealer", "Rent", "PG"]
 };
 
 const userState = {};
