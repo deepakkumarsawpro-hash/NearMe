@@ -258,8 +258,8 @@ async function sendMainMenu(to) {
           body: { text: 'नमस्ते! NearMe में आपका स्वागत है 👋\n\nआप क्या करना चाहते हैं?' },
           action: {
             buttons: [
-              { type: 'reply', reply: { id: 'seller_btn', title: 'सेल/सर्विस दूं' } },
-              { type: 'reply', reply: { id: 'buyer_btn', title: 'कुछ चाहिए' } }
+              { type: 'reply', reply: { id: 'seller_btn', title: 'सेल/सर्विस' } },
+              { type: 'reply', reply: { id: 'buyer_btn', title: 'कस्टमर' } }
             ]
           }
         }
