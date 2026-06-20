@@ -11,16 +11,126 @@ console.log('Supabase Connected');
 
 // Categories - Yahan add kar jitna chahiye
 const CATEGORIES = {
-  "Electronics": ["Mobile", "Laptop", "TV", "AC", "Refrigerator", "Washing Machine", "Headphones", "Camera"],
-  "Grocery": ["Vegetables", "Fruits", "Dairy", "Snacks", "Beverages", "Spices", "Oil", "Rice & Flour"],
-  "Clothes": ["Men Wear", "Women Wear", "Kids Wear", "Saree", "Shoes", "Jeans", "T-Shirts", "Winter Wear"],
-  "Services": ["Plumber", "Electrician", "Carpenter", "Painter", "AC Repair", "Mobile Repair", "Tutor"],
-  "Restaurant": ["North Indian", "South Indian", "Chinese", "Fast Food", "Sweets", "Bakery", "Cafe"],
-  "Medical": ["Pharmacy", "Clinic", "Hospital", "Lab Test", "Dentist", "Veterinary"],
-  "Education": ["School", "Coaching", "Computer Class"],
-  "Beauty": ["Salon", "Spa", "Makeup Artist"],
-  "Automobile": ["Mechanic", "Car Wash", "Tyre Shop"],
-  "Real Estate": ["Property Dealer", "Rent", "PG"]
+  "1. Electronics & Digital Tech": [
+    "Personal Devices (Mobiles, Laptops, Tablets)",
+    "Home Entertainment (TV, Speakers, Gaming Consoles)",
+    "Home & Kitchen Appliances (AC, Fridge, Washing Machine)",
+    "Smart Tech & Wearables (Smartwatches, IoT Devices)",
+    "Cameras & Audio Equipment (DSL0R, Headphones, Mics)",
+    "Computers, Network & Servers (Routers, Hard Disks)",
+    "Industrial & Power Electronics (Generators, Inverters, Solar)",
+    "Software, Apps & Digital Goods (OS, SaaS, Subscriptions)",
+    "Electronic Components & Semis (Chips, Wires, PCB)",
+    "Office Automation (Printers, Scanners, POS Systems)"
+  ],
+  "2. Food, Grocery & Consumables": [
+    "Fresh Produce (Fruits, Vegetables, Herbs)",
+    "Dairy, Eggs & Plant-Based Alternatives",
+    "Staples & Grains (Atta, Rice, Pulses, Cereals)",
+    "Oils, Spices, Condiments & Sauces",
+    "Packaged Food, Snacks & Confectionery",
+    "Beverages (Tea, Coffee, Juices, Water, Alcohol)",
+    "Meat, Poultry, Seafood & Frozen Food",
+    "Bakery, Desserts & Breakfast Items",
+    "Pet Food & Animal Nutrition",
+    "Baby Food & Infant Nutrition"
+  ],
+  "3. Fashion, Apparel & Personal Care": [
+    "Men's Clothing & Western Wear",
+    "Women's Clothing & Ethnic Wear",
+    "Kids, Toddlers & Infant Wear",
+    "Footwear (Casual, Formal, Sports, Boots)",
+    "Innerwear, Sleepwear & Loungewear",
+    "Jewellery, Watches & Premium Accessories",
+    "Bags, Luggage, Wallets & Travel Gear",
+    "Cosmetics, Makeup & Skin Care",
+    "Fragrances, Perfumes & Deodorants",
+    "Hair Care, Personal Hygiene & Grooming"
+  ],
+  "4. Home, Living & Industrial Infrastructure": [
+    "Furniture (Home, Office, Outdoor)",
+    "Home Decor, Lighting & Furnishing (Curtains, Rugs)",
+    "Kitchenware, Cookware & Tableware",
+    "Hardware, Tools & Building Materials (Cement, Bricks)",
+    "Electrical, Plumbing & Sanitary Ware",
+    "Heavy Machinery & Industrial Equipment (Conveyors, Sizers, Cranes)",
+    "Raw Materials, Metals, Chemicals & Plastics",
+    "Household Supplies (Cleaning, Laundry, Disinfectants)",
+    "Gardening, Plants & Agricultural Supplies",
+    "Safety & Security Systems (CCTV, Fire Alarms, PPE)"
+  ],
+  "5. Restaurants, Food Delivery & Catering": [
+    "Regional & Traditional Indian Cuisine",
+    "International & Continental Cuisine (Chinese, Italian)",
+    "Fast Food, Burgers, Pizzas & Street Food",
+    "Cafes, Breakfast Joints & Bakeries",
+    "Biryani, Tandoor & Barbecue Specialists",
+    "Sweet Shops, Ice Creams & Desserts",
+    "Cloud Kitchens & Daily Meal Tiffins",
+    "Bars, Pubs, Breweries & Lounges",
+    "Catering Services for Events & Weddings",
+    "Healthy, Diet, Vegan & Organic Food Outlets"
+  ],
+  "6. Medical, Health & Wellness": [
+    "Allopathic Medicines & Pharmacy Items",
+    "Ayurvedic, Herbal & Alternative Medicine",
+    "Hospitals, Emergency Clinics & Nursing Homes",
+    "Specialist Doctors & Consultations",
+    "Diagnostic Labs, Scans & Blood Banks",
+    "Medical Devices, Implants & Surgical Equipment",
+    "Fitness Equipment, Gyms & Yoga Centers",
+    "Nutritional Supplements, Vitamins & Proteins",
+    "Dental, Eye (Opticians) & Hearing Care Centers",
+    "Mental Health, Therapy & Rehab Services"
+  ],
+  "7. Education, Jobs & Knowledge Services": [
+    "Schools, Pre-Schools & Daycare",
+    "Higher Education, Universities & Colleges",
+    "Competitive Exams & Test Prep Coaching",
+    "K-12 Tuitions & Academic Classes",
+    "Skill Development, Coding & Professional Courses",
+    "Language, Arts, Music & Hobby Classes",
+    "Books, Stationery, E-Books & Study Material",
+    "Job Portals, Recruitment & Career Counselling",
+    "Research, Consultancy & Advisory Services",
+    "E-Learning Platforms & Educational Software"
+  ],
+  "8. Professional, Local & B2B Services": [
+    "Essential Home Technicians (Electrician, Plumber, Carpenter)",
+    "Home Cleaning, Pest Control & Laundry Services",
+    "Packers & Movers, Logistics & Courier Services",
+    "Legal, Accounting, Tax & CA Services",
+    "IT Services, Web Development & Tech Support",
+    "Marketing, Advertising & Event Management",
+    "Banking, Insurance & Financial Services",
+    "Architecture, Interior Design & Construction Services",
+    "Beauty Salons, Spas & Bridal Makeup Artists",
+    "Security Guards & Facility Management Services"
+  ],
+  "9. Automobile & Transportation": [
+    "Two-Wheelers (Bikes, Scooters - Petrol & EV)",
+    "Four-Wheelers (Cars, SUVs, Luxury Vehicles)",
+    "Commercial & Heavy Vehicles (Trucks, Buses, HEMM)",
+    "Auto Spare Parts, Components & Engine Oil",
+    "Vehicle Servicing, Mechanics & Garages",
+    "Car Wash, Detailing & Decals",
+    "Tyres, Alloys & Battery Shops",
+    "Travel Bookings, Cabs, Rentals & Logistics",
+    "Electric Vehicle Charging & Battery Swapping Stations",
+    "Aviation, Marine & Rail Transport Equipment"
+  ],
+  "10. Real Estate, Construction & Accommodation": [
+    "Residential Properties for Sale (Flats, Villas)",
+    "Residential Properties for Rent (Houses, Apartments)",
+    "Paying Guest (PG), Co-living & Student Hostels",
+    "Commercial Properties (Shops, Showrooms, Offices)",
+    "Industrial Real Estate (Warehouses, Factories, Land)",
+    "Agricultural Land & Open Plots",
+    "Hotels, Resorts, Homestays & Guest Houses",
+    "Real Estate Agents, Dealers & Brokers",
+    "Property Management & Legal Documentation",
+    "Co-working Spaces & Shared Offices"
+  ]
 };
 
 const userState = {};
