@@ -154,6 +154,31 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+const crypto = require('crypto');
+
+// App Secret verify karne ke liye
+function verifySignature(req, res, buf) {
+  const signature = req.headers['x-hub-signature-256'];
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  
+  if (!signature || !appSecret) {
+    throw new Error('Missing signature or app secret');
+  }
+  
+  const expectedSignature = 'sha256=' + crypto
+    .createHmac('sha256', appSecret)
+    .update(buf)
+    .digest('hex');
+    
+  if (signature !== expectedSignature) {
+    throw new Error('Invalid signature');
+  }
+}
+
+// Ye line sabse zaroori hai - webhook ke liye raw body chahiye
+app.use('/webhook', express.raw({type: 'application/json', verify: verifySignature}));
+
+app.post('/webhook', async (req, res) => {
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
