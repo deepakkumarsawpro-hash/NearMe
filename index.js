@@ -275,10 +275,48 @@ async function handleButtonClick(from, buttonId) {
     await startSellerRegistration(from);
   } else if (buttonId === 'buyer_btn') {
     await startBuyerSearch(from);
+  } else if (buttonId === 'add_more_yes') {
+    userState[from].step = 'category';
+    await sendCategoryList(from, 'seller');
+  } else if (buttonId === 'add_more_no') {
+    userState[from].step = 'name';
+    await sendMessage(from, `सब कैटेगरी सेव हो गईं ✅\n\nअब अपना नाम बताइए:`);
   }
 }
 
-// Handle List Clicks
+// Naya Function - Add More Option
+async function sendAddMoreOption(to, lastSubcat) {
+  const subcatList = userState[to].data.subcategories.join(', ');
+  try {
+    await axios({
+      method: 'POST',
+      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      headers: {
+        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: `✅ ${lastSubcat} जुड़ गया\n\nअभी तक: ${subcatList}\n\nक्या कोई और सर्विस/प्रोडक्ट जोड़ना है?` },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: 'add_more_yes', title: 'हां, और जोड़ें' } },
+              { type: 'reply', reply: { id: 'add_more_no', title: 'नहीं, आगे बढ़ें' } }
+            ]
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.log('Error:', error.response?.data || error.message);
+  }
+}
+
+// Handle List Clicks - UPDATED FOR MULTIPLE SUBCATEGORY
 async function handleListClick(from, listId) {
   const state = userState[from];
   if (!state) return;
@@ -293,10 +331,18 @@ async function handleListClick(from, listId) {
     }
     else if (listId.startsWith('subcat_')) {
       const subcategory = listId.replace('subcat_', '');
-      userState[from].data.subcategory = subcategory;
-      userState[from].step = 'name';
+
+      if (!userState[from].data.subcategories) {
+        userState[from].data.subcategories = [];
+      }
+
+      if (!userState[from].data.subcategories.includes(subcategory)) {
+        userState[from].data.subcategories.push(subcategory);
+      }
+
+      userState[from].step = 'add_more';
       userState[from].timestamp = Date.now();
-      await sendMessage(from, `कैटेगरी: ${subcategory} ✅\n\nअब अपना नाम बताइए:`);
+      await sendAddMoreOption(from, subcategory);
     }
   }
 
@@ -441,7 +487,7 @@ async function sendSubcategoryList(to, category, flowType) {
   }
 }
 
-// Flow Handler
+// Flow Handler - UPDATED FOR MULTIPLE SUBCATEGORY
 async function handleFlow(from, msgBody, location, profileName) {
   const state = userState[from];
   if (!state) return;
@@ -475,13 +521,14 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data, error } = await supabase
-    .from('sellers')
-    .insert([userState[from].data])
-    .select();
+   .from('sellers')
+   .insert([userState[from].data])
+   .select();
 
           if (error) throw error;
 
-          await sendMessage(from, `🎉 बधाई हो! आप NearMe पर रजिस्टर हो गए।\n\nकैटेगरी: ${userState[from].data.category}\nसब-कैटेगरी: ${userState[from].data.subcategory}\n\nअब आपको कस्टमर्स की रिक्वेस्ट मिलेगी।`);
+          const subcatText = userState[from].data.subcategories.join(', ');
+          await sendMessage(from, `🎉 बधाई हो! आप NearMe पर रजिस्टर हो गए।\n\nकैटेगरी: ${userState[from].data.category}\nसर्विस: ${subcatText}\n\nअब आपको कस्टमर्स की रिक्वेस्ट मिलेगी।`);
           console.log('New Seller Saved:', data);
         } catch (error) {
           console.log('DB Save Error:', error);
@@ -494,7 +541,7 @@ async function handleFlow(from, msgBody, location, profileName) {
     }
   }
 
-  // BUYER FLOW
+  // BUYER FLOW - UPDATED FOR ARRAY SEARCH
   if (state.flow === 'buyer') {
     if (state.step === 'location') {
       if (location) {
@@ -503,10 +550,10 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data: sellers, error } = await supabase
-    .from('sellers')
-    .select('*')
-    .eq('category', category)
-    .eq('subcategory', subcategory);
+   .from('sellers')
+   .select('*')
+   .eq('category', category)
+   .contains('subcategories', [subcategory]);
 
           if (error ||!sellers?.length) {
             await sendMessage(from, `आस-पास कोई ${subcategory} नहीं मिला 😔`);
