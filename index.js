@@ -11,125 +11,125 @@ console.log('Supabase Connected');
 
 // Categories - Yahan add kar jitna chahiye
 const CATEGORIES = {
-  "1. Electronics & Digital Tech": [
-    "Personal Devices (Mobiles, Laptops, Tablets)",
-    "Home Entertainment (TV, Speakers, Gaming Consoles)",
-    "Home & Kitchen Appliances (AC, Fridge, Washing Machine)",
-    "Smart Tech & Wearables (Smartwatches, IoT Devices)",
-    "Cameras & Audio Equipment (DSL0R, Headphones, Mics)",
-    "Computers, Network & Servers (Routers, Hard Disks)",
-    "Industrial & Power Electronics (Generators, Inverters, Solar)",
-    "Software, Apps & Digital Goods (OS, SaaS, Subscriptions)",
-    "Electronic Components & Semis (Chips, Wires, PCB)",
-    "Office Automation (Printers, Scanners, POS Systems)"
+  "इलेक्ट्रॉनिक्स और टेक": [
+    "मोबाइल और टैबलेट",
+    "लैपटॉप और कंप्यूटर",
+    "टीवी और ऑडियो सिस्टम",
+    "घरेलू उपकरण (AC, Fridge)",
+    "स्मार्ट वॉच और बैंड",
+    "कैमरा और गियर",
+    "नेटवर्क और राउटर",
+    "सॉफ्टवेयर और ऐप्स",
+    "इलेक्ट्रॉनिक पार्ट्स",
+    "ऑफिस इलेक्ट्रॉनिक्स"
   ],
-  "2. Food, Grocery & Consumables": [
-    "Fresh Produce (Fruits, Vegetables, Herbs)",
-    "Dairy, Eggs & Plant-Based Alternatives",
-    "Staples & Grains (Atta, Rice, Pulses, Cereals)",
-    "Oils, Spices, Condiments & Sauces",
-    "Packaged Food, Snacks & Confectionery",
-    "Beverages (Tea, Coffee, Juices, Water, Alcohol)",
-    "Meat, Poultry, Seafood & Frozen Food",
-    "Bakery, Desserts & Breakfast Items",
-    "Pet Food & Animal Nutrition",
-    "Baby Food & Infant Nutrition"
+  "राशन और किराना": [
+    "फल और सब्जियां",
+    "डेयरी और बेकरी",
+    "आटा, चावल और दालें",
+    "तेल और मसाले",
+    "स्नैक्स और पैक्ड फूड",
+    "जूस और कोल्ड ड्रिंक्स",
+    "मीट और सीफूड",
+    "मिठाइयां और डेसर्ट",
+    "पालतू जानवरों का सामान",
+    "शिशु आहार (Baby Food)"
   ],
-  "3. Fashion, Apparel & Personal Care": [
-    "Men's Clothing & Western Wear",
-    "Women's Clothing & Ethnic Wear",
-    "Kids, Toddlers & Infant Wear",
-    "Footwear (Casual, Formal, Sports, Boots)",
-    "Innerwear, Sleepwear & Loungewear",
-    "Jewellery, Watches & Premium Accessories",
-    "Bags, Luggage, Wallets & Travel Gear",
-    "Cosmetics, Makeup & Skin Care",
-    "Fragrances, Perfumes & Deodorants",
-    "Hair Care, Personal Hygiene & Grooming"
+  "फैशन और ब्यूटी": [
+    "पुरुषों के कपड़े",
+    "महिलाओं के कपड़े",
+    "बच्चों के कपड़े",
+    "जूते और चप्पल",
+    "इनरवियर और नाइटवियर",
+    "ज्वेलरी और घड़ियां",
+    "बैग और सूटकेस",
+    "कॉस्मेटिक्स और मेकअप",
+    "इत्र और परफ्यूम",
+    "पर्सनल ग्रूमिंग"
   ],
-  "4. Home, Living & Industrial Infrastructure": [
-    "Furniture (Home, Office, Outdoor)",
-    "Home Decor, Lighting & Furnishing (Curtains, Rugs)",
-    "Kitchenware, Cookware & Tableware",
-    "Hardware, Tools & Building Materials (Cement, Bricks)",
-    "Electrical, Plumbing & Sanitary Ware",
-    "Heavy Machinery & Industrial Equipment (Conveyors, Sizers, Cranes)",
-    "Raw Materials, Metals, Chemicals & Plastics",
-    "Household Supplies (Cleaning, Laundry, Disinfectants)",
-    "Gardening, Plants & Agricultural Supplies",
-    "Safety & Security Systems (CCTV, Fire Alarms, PPE)"
+  "होम और इंडस्ट्रियल": [
+    "फर्नीचर",
+    "घर की सजावट (Decor)",
+    "बर्तन और किचन का सामान",
+    "हार्डवेयर और टूल्स",
+    "बिजली और प्लंबिंग",
+    "भारी मशीनरी (Machinery)",
+    "कच्चा माल (Raw Material)",
+    "सफाई का सामान",
+    "खेती और बागवानी",
+    "सुरक्षा और सीसीटीवी"
   ],
-  "5. Restaurants, Food Delivery & Catering": [
-    "Regional & Traditional Indian Cuisine",
-    "International & Continental Cuisine (Chinese, Italian)",
-    "Fast Food, Burgers, Pizzas & Street Food",
-    "Cafes, Breakfast Joints & Bakeries",
-    "Biryani, Tandoor & Barbecue Specialists",
-    "Sweet Shops, Ice Creams & Desserts",
-    "Cloud Kitchens & Daily Meal Tiffins",
-    "Bars, Pubs, Breweries & Lounges",
-    "Catering Services for Events & Weddings",
-    "Healthy, Diet, Vegan & Organic Food Outlets"
+  "रेस्टोरेंट और फूड": [
+    "भारतीय खाना",
+    "इंटरनेशनल फूड",
+    "फास्ट फूड और स्नैक्स",
+    "कैफे और बेकरी",
+    "बिरयानी और तंदूर",
+    "आइसक्रीम और शेक्स",
+    "क्लाउड किचन / टिफिन",
+    "पब और लाउंज",
+    "कैटरिंग सर्विसेज",
+    "हेल्दी और ऑर्गेनिक फूड"
   ],
-  "6. Medical, Health & Wellness": [
-    "Allopathic Medicines & Pharmacy Items",
-    "Ayurvedic, Herbal & Alternative Medicine",
-    "Hospitals, Emergency Clinics & Nursing Homes",
-    "Specialist Doctors & Consultations",
-    "Diagnostic Labs, Scans & Blood Banks",
-    "Medical Devices, Implants & Surgical Equipment",
-    "Fitness Equipment, Gyms & Yoga Centers",
-    "Nutritional Supplements, Vitamins & Proteins",
-    "Dental, Eye (Opticians) & Hearing Care Centers",
-    "Mental Health, Therapy & Rehab Services"
+  "स्वास्थ्य और मेडिकल": [
+    "दवाइयां और फार्मेसी",
+    "क्लिनिक और डॉक्टर्स",
+    "अस्पताल (Hospitals)",
+    "लैब टेस्ट और स्कैन",
+    "दांतों की देखभाल",
+    "आंखों की देखभाल",
+    "फिटनेस और जिम",
+    "हेल्थ सप्लीमेंट्स",
+    "मेडिकल उपकरण",
+    "मानसिक स्वास्थ्य सेवाएं"
   ],
-  "7. Education, Jobs & Knowledge Services": [
-    "Schools, Pre-Schools & Daycare",
-    "Higher Education, Universities & Colleges",
-    "Competitive Exams & Test Prep Coaching",
-    "K-12 Tuitions & Academic Classes",
-    "Skill Development, Coding & Professional Courses",
-    "Language, Arts, Music & Hobby Classes",
-    "Books, Stationery, E-Books & Study Material",
-    "Job Portals, Recruitment & Career Counselling",
-    "Research, Consultancy & Advisory Services",
-    "E-Learning Platforms & Educational Software"
+  "शिक्षा और नौकरियां": [
+    "स्कूल और डेकेयर",
+    "कॉलेज और यूनिवर्सिटी",
+    "एग्जाम कोचिंग",
+    "होम ट्यूशन",
+    "स्किल कोर्सेज",
+    "हॉबी और आर्ट क्लासेस",
+    "किताबें और स्टेशनरी",
+    "नौकरियां / वैकेंसी",
+    "करियर कंसल्टेंसी",
+    "ऑनलाइन लर्निंग"
   ],
-  "8. Professional, Local & B2B Services": [
-    "Essential Home Technicians (Electrician, Plumber, Carpenter)",
-    "Home Cleaning, Pest Control & Laundry Services",
-    "Packers & Movers, Logistics & Courier Services",
-    "Legal, Accounting, Tax & CA Services",
-    "IT Services, Web Development & Tech Support",
-    "Marketing, Advertising & Event Management",
-    "Banking, Insurance & Financial Services",
-    "Architecture, Interior Design & Construction Services",
-    "Beauty Salons, Spas & Bridal Makeup Artists",
-    "Security Guards & Facility Management Services"
+  "लोकल और B2B सेवाएं": [
+    "घर के मिस्त्री (Technicians)",
+    "सफाई और पेस्ट कंट्रोल",
+    "पैकर्स और मूवर्स",
+    "लीगल और CA सर्विसेज",
+    "IT और वेब एक्सपर्ट्स",
+    "मार्केटिंग और इवेंट्स",
+    "बैंकिंग और इंश्योरेंस",
+    "इंटीरियर डिजाइन",
+    "सैलून और स्पा",
+    "सिक्योरिटी सर्विसेज"
   ],
-  "9. Automobile & Transportation": [
-    "Two-Wheelers (Bikes, Scooters - Petrol & EV)",
-    "Four-Wheelers (Cars, SUVs, Luxury Vehicles)",
-    "Commercial & Heavy Vehicles (Trucks, Buses, HEMM)",
-    "Auto Spare Parts, Components & Engine Oil",
-    "Vehicle Servicing, Mechanics & Garages",
-    "Car Wash, Detailing & Decals",
-    "Tyres, Alloys & Battery Shops",
-    "Travel Bookings, Cabs, Rentals & Logistics",
-    "Electric Vehicle Charging & Battery Swapping Stations",
-    "Aviation, Marine & Rail Transport Equipment"
+  "ऑटो और ट्रांसपोर्ट": [
+    "बाइक और स्कूटर",
+    "कार और एसयूवी",
+    "कमर्शियल गाड़ियां / ट्रक",
+    "स्पेयर पार्ट्स और ऑयल",
+    "गैराज और मैकेनिक",
+    "कार वॉश और डेकोर",
+    "टायर और बैटरी",
+    "कैब और रेंटल गाड़ियां",
+    "EV चार्जिंग स्टेशन",
+    "लॉजिस्टिक्स और कूरियर"
   ],
-  "10. Real Estate, Construction & Accommodation": [
-    "Residential Properties for Sale (Flats, Villas)",
-    "Residential Properties for Rent (Houses, Apartments)",
-    "Paying Guest (PG), Co-living & Student Hostels",
-    "Commercial Properties (Shops, Showrooms, Offices)",
-    "Industrial Real Estate (Warehouses, Factories, Land)",
-    "Agricultural Land & Open Plots",
-    "Hotels, Resorts, Homestays & Guest Houses",
-    "Real Estate Agents, Dealers & Brokers",
-    "Property Management & Legal Documentation",
-    "Co-working Spaces & Shared Offices"
+  "प्रॉपर्टी और स्टे": [
+    "बिक्री के लिए प्रॉपर्टी",
+    "किराए के लिए घर",
+    "PG और हॉस्टल्स",
+    "कमर्शियल दुकानें / ऑफिस",
+    "इंडस्ट्रियल जमीन / गोदाम",
+    "प्लॉट और फार्महाउस",
+    "होटल और रिसॉर्ट्स",
+    "प्रॉपर्टी डीलर्स",
+    "प्रॉपर्टी के कागजात / लीगल",
+    "को-वर्किंग स्पेस"
   ]
 };
 
