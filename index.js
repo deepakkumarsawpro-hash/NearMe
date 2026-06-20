@@ -255,11 +255,11 @@ async function sendMainMenu(to) {
         type: 'interactive',
         interactive: {
           type: 'button',
-          body: { text: 'Hi! NearMe me apka swagat hai 👋\n\nKya karna chahte ho?' },
+          body: { text: 'Hi! NearMe में आपका स्वागत है 👋\n\nआप क्या ढूंढ रहे हैं?' },
           action: {
             buttons: [
-              { type: 'reply', reply: { id: 'seller_btn', title: 'Sale/Service' } },
-              { type: 'reply', reply: { id: 'buyer_btn', title: 'Customer' } }
+              { type: 'reply', reply: { id: 'seller_btn', title: 'सेल/सर्विस' } },
+              { type: 'reply', reply: { id: 'buyer_btn', title: 'कस्टमर' } }
             ]
           }
         }
@@ -296,7 +296,7 @@ async function handleListClick(from, listId) {
       userState[from].data.subcategory = subcategory;
       userState[from].step = 'name';
       userState[from].timestamp = Date.now();
-      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apna naam bhejo:`);
+      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nअब अपना नाम बताइए:`);
     }
   }
 
@@ -313,7 +313,7 @@ async function handleListClick(from, listId) {
       userState[from].data.subcategory = subcategory;
       userState[from].step = 'location';
       userState[from].timestamp = Date.now();
-      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nAb apni location bhejo 📍`);
+      await sendMessage(from, `Subcategory: ${subcategory} ✅\n\nअब अपनी लोकेशन भेजिए 📍`);
     }
   }
 }
@@ -327,7 +327,7 @@ async function startSellerRegistration(to) {
 .single();
 
   if (existing) {
-    await sendMessage(to, `Aap already register ho: ${existing.name} ✅\n\nEk WhatsApp number se ek hi seller register ho sakta hai.`);
+    await sendMessage(to, `आप ऑलरेडी रजिस्टर हो: ${existing.name} ✅\n\nएक व्हाट्सएप्प से एक ही सेल/सर्विस रजिस्टर हो सकता है.`);
     return;
   }
 
@@ -405,8 +405,8 @@ async function sendSubcategoryList(to, category, flowType) {
   const subcats = CATEGORIES[category];
   const prefix = flowType === 'buyer'? 'bsubcat_' : 'subcat_';
   const text = flowType === 'buyer'
-? `${category} me kya chahiye?\n\n_Cancel karne ke liye "cancel" type kare_`
-    : `${category} me apni subcategory chuno:\n\n_Cancel karne ke liye "cancel" type kare_`;
+? `${category} में क्या चाहिए?\n\n_कैंसल करने के लिए "cancel" टाइप करें_`
+    : `${category} में अपनी कैटिगरी चुनो:\n\n_कैंसल करने के लिए "cancel" टाइप करें_`;
 
   const subcatRows = subcats.map(sub => ({
     id: `${prefix}${sub}`,
@@ -460,12 +460,12 @@ async function handleFlow(from, msgBody, location, profileName) {
     if (state.step === 'name') {
       userState[from].data.name = msgBody;
       userState[from].step = 'phone';
-      await sendMessage(from, 'Naam save ho gaya ✅\n\nAb apna phone number bhejo:');
+      await sendMessage(from, 'नाम सेभ हो गया है ✅\n\nअब अपना फोन नंबर भेजो:');
     }
     else if (state.step === 'phone') {
       userState[from].data.phone = msgBody;
       userState[from].step = 'location';
-      await sendMessage(from, 'Phone save ho gaya ✅\n\nAb WhatsApp ka Location button dabake apni location bhejo 📍');
+      await sendMessage(from, 'फोन सेभ हो गया है ✅\n\nअब व्हाट्सएप्प का लोकेशन बटन दबा के अपनी लोकेशन भेजो 📍');
     }
     else if (state.step === 'location') {
       if (location) {
@@ -481,15 +481,15 @@ async function handleFlow(from, msgBody, location, profileName) {
 
           if (error) throw error;
 
-          await sendMessage(from, `🎉 Badhai ho! Aap NearMe par register ho gaye.\n\nCategory: ${userState[from].data.category}\nSubcategory: ${userState[from].data.subcategory}\n\nAb buyers ki request aapko milegi.`);
+          await sendMessage(from, `🎉 बधाई हो! आप NearMe पर रजिस्टर हो गए.\n\nCategory: ${userState[from].data.category}\nSubcategory: ${userState[from].data.subcategory}\n\nAb buyers ki request aapko milegi.`);
           console.log('New Seller Saved:', data);
         } catch (error) {
           console.log('DB Save Error:', error);
-          await sendMessage(from, 'Kuch error aa gaya. Baad me try karna.');
+          await sendMessage(from, 'कुछ एरर आ गया। बाद में ट्राई करना.');
         }
         delete userState[from];
       } else {
-        await sendMessage(from, 'Location nahi mili. 📍 button se location bhejo.');
+        await sendMessage(from, '"लोकेशन नहीं मिली". 📍 "बटन से लोकेशन भेजो"');
       }
     }
   }
@@ -509,14 +509,14 @@ async function handleFlow(from, msgBody, location, profileName) {
      .eq('subcategory', subcategory);
 
           if (error ||!sellers?.length) {
-            await sendMessage(from, `Aas-paas koi ${subcategory} nahi mila 😔`);
+            await sendMessage(from, `"आस-पास कोई" ${subcategory} "नहीं मिला" 😔`);
             return delete userState[from];
           }
 
           const nearby = sellers.filter(s => getDistance(latitude, longitude, s.latitude, s.longitude) <= 5);
 
           if (!nearby.length) {
-            await sendMessage(from, '5km ke andar koi seller nahi mila 😔');
+            await sendMessage(from, '"5 km के अंदर कोई सेलर नहीं मिला" 😔');
             return delete userState[from];
           }
 
@@ -536,11 +536,11 @@ async function handleFlow(from, msgBody, location, profileName) {
           await sendMessage(from, `✅ ${sentCount} sellers ko request bhej di gayi hai.\n\nJo seller "Available" bolega, usse aapki chat start ho jayegi.\n\n⚠️ Reply karne ke liye seller ke message ko swipe karke reply kare.`);
         } catch (error) {
           console.log('Search Error:', error);
-          await sendMessage(from, 'Search me error aa gaya. Baad me try karna.');
+          await sendMessage(from, '"सर्च में एरर आ गया। बाद में ट्राई करना।"');
         }
         delete userState[from];
       } else {
-        await sendMessage(from, 'Location nahi mili. 📍 button se location bhejo.');
+        await sendMessage(from, '"लोकेशन नहीं मिली". 📍 "बटन से लोकेशन भेजो"');
       }
     }
   }
