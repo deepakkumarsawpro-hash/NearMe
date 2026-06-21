@@ -797,14 +797,39 @@ app.post('/admin/add-seller', async (req, res) => {
 .insert([req.body])
 .select();
 
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+const crypto = require('crypto');
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// App Secret verify karne ke liye
+function verifySignature(req, res, buf) {
+  const signature = req.headers['x-hub-signature-256'];
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  
+  if (!signature || !appSecret) {
+    return; // Meta ka verify request hoga to signature nahi aata
+  }
+  
+  const expectedSignature = 'sha256=' + crypto
+    .createHmac('sha256', appSecret)
+    .update(buf)
+    .digest('hex');
+    
+  if (signature !== expectedSignature) {
+    throw new Error('Invalid signature');
+  }
+} // <-- Ye bracket sabse zaroori hai
+
+// Webhook ke liye raw body chahiye
+app.use('/webhook', express.raw({type: 'application/json', verify: verifySignature}));
+
+// Tera webhook route
+app.post('/webhook', async (req, res) => {
+  // express.raw ke baad body ko parse karna padega
+  const body = JSON.parse(req.body.toString());
+  
+  // Tera purana code yaha se start hoga
+  if (body.object === 'whatsapp_business_account') {
+    // ... tera baaki ka code ...
+  }
+  
+  res.sendStatus(200);
+}); // <-- Ye bracket bhi zaroori hai
