@@ -6,9 +6,7 @@ require('dotenv').config();
 
 const app = express();
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-// ✅ YAHAN APNA FLOW ID DAAL DE JO PUBLISH KARNE KE BAAD MILEGA
-const FLOW_ID = 'YOUR_FLOW_ID_HERE';
+console.log('Supabase Connected');
 
 const CATEGORIES = {
   "इलेक्ट्रॉनिक्स": ["मोबाइल और टैबलेट", "लैपटॉप और कंप्यूटर", "टीवी और ऑडियो", "होम एप्लायंसेज", "स्मार्ट वॉच", "कैमरा और गियर", "राउटर और नेटवर्क", "सॉफ्टवेयर और ऐप्स", "इलेक्ट्रॉनिक पार्ट्स", "ऑफिस इलेक्ट्रॉनिक्स"],
@@ -27,6 +25,7 @@ const userState = {};
 const pendingRequests = {};
 const activeChats = {};
 const lastMessageId = {};
+const tempSelections = {}; // Web form ke liye
 
 function verifySignature(req, res, buf) {
   const signature = req.headers['x-hub-signature-256'];
@@ -38,6 +37,7 @@ function verifySignature(req, res, buf) {
 
 app.use('/webhook', express.raw({type: 'application/json', verify: verifySignature}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Form data ke liye
 
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
@@ -54,6 +54,87 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+// ✅ WEB PAGE - Multiple Select Ke Liye
+app.get('/select', (req, res) => {
+  const { user, category, type } = req.query;
+  if (!user ||!category ||!CATEGORIES[category]) {
+    return res.send('Invalid Link');
+  }
+
+  const subcats = CATEGORIES[category];
+  const checkboxes = subcats.map(sub => `
+    <label style="display:block; padding:12px; margin:8px 0; background:#f0f0f0; border-radius:8px; font-size:16px;">
+      <input type="checkbox" name="subcats" value="${sub}" style="width:20px; height:20px; margin-right:10px;"> ${sub}
+    </label>
+  `).join('');
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Select करें</title>
+      <style>
+        body { font-family: Arial; padding: 20px; background: #fff; }
+        h2 { color: #075e54; }
+        button { width:100%; padding:15px; background:#25D366; color:white; border:none; border-radius:8px; font-size:18px; margin-top:20px; }
+       .selected { background:#d4edda!important; }
+      </style>
+    </head>
+    <body>
+      <h2>${category}</h2>
+      <p>जितनी चाहिए उतनी Select करें 👇</p>
+      <form action="/submit" method="POST">
+        <input type="hidden" name="user" value="${user}">
+        <input type="hidden" name="type" value="${type}">
+        ${checkboxes}
+        <button type="submit">Done - WhatsApp पर वापस जाएं</button>
+      </form>
+      <script>
+        document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+          cb.onchange = () => cb.parentElement.classList.toggle('selected', cb.checked);
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// ✅ FORM SUBMIT - WhatsApp Pe Wapas Bhejo
+app.post('/submit', async (req, res) => {
+  const { user, type, subcats } = req.body;
+  const selected = Array.isArray(subcats)? subcats : subcats? [subcats] : [];
+
+  if (selected.length === 0) {
+    return res.send('कुछ तो Select करो! <a href="javascript:history.back()">Back</a>');
+  }
+
+  // State me save karo
+  if (type === 'seller') {
+    userState[user].data.subcategories = selected;
+    userState[user].step = 'name';
+    userState[user].timestamp = Date.now();
+    await sendMessage(user, `✅ ${selected.length} सर्विस Select हो गई:\n${selected.join(', ')}\n\nअब अपना नाम बताइए:`);
+  } else if (type === 'buyer') {
+    userState[user].data.subcategories = selected;
+    userState[user].step = 'location';
+    userState[user].timestamp = Date.now();
+    await sendMessage(user, `✅ ${selected.length} कैटेगरी चुनीं:\n${selected.join(', ')}\n\nअब अपनी लोकेशन भेजिए 📍`);
+  }
+
+  res.send(`
+    <html>
+    <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family:Arial; text-align:center; padding:50px;">
+      <h2 style="color:#25D366;">✅ हो गया!</h2>
+      <p>WhatsApp पर वापस जाओ</p>
+      <script>setTimeout(() => window.close(), 2000);</script>
+    </body>
+    </html>
+  `);
+});
+
 app.post('/webhook', async (req, res) => {
   const body = JSON.parse(req.body.toString());
   if (body.object) {
@@ -66,7 +147,6 @@ app.post('/webhook', async (req, res) => {
       const image = message.image;
       const buttonReply = message.interactive?.button_reply?.id;
       const listReply = message.interactive?.list_reply?.id;
-      const flowReply = message.interactive?.nfm_reply?.response_json; // Flow ka reply
       const context = message.context;
       const contacts = value.contacts?.[0];
       const profileName = contacts?.profile?.name || 'User';
@@ -108,27 +188,6 @@ app.post('/webhook', async (req, res) => {
       }
       if (buttonReply && buttonReply.startsWith('chat_confirm_')) {
         await sendMessage(activeChats[from].with, `*${profileName}* ने Confirm कर दिया ✅`);
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-
-      // ✅ FLOW KA REPLY HANDLE KARO
-      if (flowReply) {
-        const responseData = JSON.parse(flowReply);
-        const selectedSubs = responseData.subcategories;
-        const state = userState[from];
-
-        if (state && state.flow === 'seller') {
-          userState[from].data.subcategories = selectedSubs;
-          userState[from].step = 'name';
-          userState[from].timestamp = Date.now();
-          await sendMessage(from, `✅ ${selectedSubs.length} सर्विस Select हो गई:\n${selectedSubs.join(', ')}\n\nअब अपना नाम बताइए:`);
-        }
-        else if (state && state.flow === 'buyer') {
-          userState[from].data.subcategories = selectedSubs;
-          userState[from].step = 'location';
-          userState[from].timestamp = Date.now();
-          await sendMessage(from, `✅ ${selectedSubs.length} कैटेगरी चुनीं:\n${selectedSubs.join(', ')}\n\nअब अपनी लोकेशन भेजिए 📍`);
-        }
         return res.status(200).send('EVENT_RECEIVED');
       }
 
@@ -207,7 +266,7 @@ async function handleListClick(from, listId) {
       userState[from].data.category = category;
       userState[from].step = 'subcategory';
       userState[from].timestamp = Date.now();
-      await sendFlowForSubcategory(from, category, 'seller');
+      await sendSubcategoryLink(from, category, 'seller');
     }
   }
 
@@ -217,18 +276,15 @@ async function handleListClick(from, listId) {
       userState[from].data.category = category;
       userState[from].step = 'subcategory';
       userState[from].timestamp = Date.now();
-      await sendFlowForSubcategory(from, category, 'buyer');
+      await sendSubcategoryLink(from, category, 'buyer');
     }
   }
 }
 
-// ✅ FLOW BHEJNE WALA FUNCTION
-async function sendFlowForSubcategory(to, category, flowType) {
-  const subcats = CATEGORIES[category];
-  const options = subcats.map((sub, idx) => ({
-    id: `sub_${idx}`,
-    title: sub
-  }));
+// ✅ LINK BHEJO - Multiple Select Ke Liye
+async function sendSubcategoryLink(to, category, flowType) {
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || `https://${process.env.RENDER_SERVICE_NAME}.onrender.com`;
+  const link = `${baseUrl}/select?user=${to}&category=${encodeURIComponent(category)}&type=${flowType}`;
 
   try {
     await axios({
@@ -241,34 +297,14 @@ async function sendFlowForSubcategory(to, category, flowType) {
       data: {
         messaging_product: 'whatsapp',
         to: to,
-        type: 'interactive',
-        interactive: {
-          type: 'flow',
-          header: { type: 'text', text: category },
-          body: { text: 'एक से ज्यादा सब-कैटेगरी चुनें' },
-          footer: { text: 'Touch करके Select करो' },
-          action: {
-            name: 'flow',
-            parameters: {
-              flow_message_version: '3',
-              flow_token: `${flowType}_${Date.now()}`,
-              flow_id: FLOW_ID,
-              flow_cta: 'सब-कैटेगरी चुनें',
-              flow_action: 'navigate',
-              flow_action_payload: {
-                screen: 'SUBCAT_SCREEN',
-                data: {
-                  options: options
-                }
-              }
-            }
-          }
+        type: 'text',
+        text: {
+          body: `📋 ${category}\n\n👇 इस लिंक पे क्लिक करके multiple select करो:\n${link}\n\n_Jitni chahiye utni tick karo, phir Submit dabao_`
         }
       }
     });
   } catch (error) {
-    console.log('Flow Send Error:', error.response?.data || error.message);
-    await sendMessage(to, 'Flow भेजने में error आ गया।');
+    console.log('Error:', error.response?.data || error.message);
   }
 }
 
