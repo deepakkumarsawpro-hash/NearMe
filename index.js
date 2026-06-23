@@ -151,9 +151,9 @@ function verifySignature(req, res, buf) {
   }
 
   const expectedSignature = 'sha256=' + crypto
-  .createHmac('sha256', appSecret)
-  .update(buf)
-  .digest('hex');
+   .createHmac('sha256', appSecret)
+   .update(buf)
+   .digest('hex');
 
   if (signature!== expectedSignature) {
     throw new Error('Invalid signature');
@@ -225,12 +225,12 @@ app.post('/webhook', async (req, res) => {
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 2. Active Chat - Text ya Image relay WITH BUTTON
-      if (activeChats[from]) {
+      // 2. Active Chat - Text ya Image relay
+      if (activeChats[from] && context) {
         if (msgBody) {
-          await relayMessageWithButtons(from, activeChats[from].with, msgBody, profileName);
+          await relayMessageWithQuote(from, activeChats[from].with, msgBody, profileName);
         } else if (image) {
-          await relayImageWithButtons(from, activeChats[from].with, image, msgBody, profileName);
+          await relayImageWithQuote(from, activeChats[from].with, image, msgBody, profileName);
         }
         return res.status(200).send('EVENT_RECEIVED');
       }
@@ -241,14 +241,7 @@ app.post('/webhook', async (req, res) => {
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 4. Chat Reply button dabaya - Naya
-      if (buttonReply && buttonReply.startsWith('chat_reply_')) {
-        const targetUser = buttonReply.replace('chat_reply_', '');
-        await sendMessage(from, '👇 अपना मैसेज टाइप करके भेजें:');
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-
-      // 5. Normal flow
+      // 4. Normal flow
       if (buttonReply) {
         await handleButtonClick(from, buttonReply);
       }
@@ -558,9 +551,9 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data, error } = await supabase
- .from('sellers')
- .insert([userState[from].data])
- .select();
+  .from('sellers')
+  .insert([userState[from].data])
+  .select();
 
           if (error) throw error;
 
@@ -587,10 +580,10 @@ async function handleFlow(from, msgBody, location, profileName) {
 
         try {
           const { data: sellers, error } = await supabase
- .from('sellers')
- .select('*')
- .eq('category', category)
- .contains('subcategories', [subcategory]);
+  .from('sellers')
+  .select('*')
+  .eq('category', category)
+  .contains('subcategories', [subcategory]);
 
           if (error ||!sellers?.length) {
             await sendMessage(from, `आस-पास कोई ${subcategory} नहीं मिला 😔`);
@@ -617,7 +610,7 @@ async function handleFlow(from, msgBody, location, profileName) {
             if (sentMsg) sentCount++;
           }
 
-          await sendMessage(from, `✅ ${sentCount} सेलर्स को रिक्वेस्ट भेज दी गई है।\n\nजो सेलर "Available" बोलेगा, उससे आपकी चैट शुरू हो जाएगी।`);
+          await sendMessage(from, `✅ ${sentCount} सेलर्स को रिक्वेस्ट भेज दी गई है।\n\nजो सेलर "Available" बोलेगा, उससे आपकी चैट शुरू हो जाएगी।\n\n⚠️ जवाब देने के लिए सेलर के मैसेज को स्वाइप करके रिप्लाई करें।`);
         } catch (error) {
           console.log('Search Error:', error);
           await sendMessage(from, 'सर्च में एरर आ गया। बाद में ट्राई करें।');
@@ -664,7 +657,7 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   }
 }
 
-// Connect Buyer & Seller - Send Location to Buyer + BUTTONS
+// Connect Buyer & Seller - Send Location to Buyer
 async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   let buyerId = null;
   let buyerName = 'कस्टमर';
@@ -689,7 +682,12 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
     return;
   }
 
-  const { data: sellerData } = await supabase.from('sellers').select('name, latitude, longitude').eq('whatsapp_id', sellerId).single();
+  const { data: sellerData } = await supabase
+.from('sellers')
+.select('name, latitude, longitude')
+.eq('whatsapp_id', sellerId)
+.single();
+
   if (sellerData) {
     sellerDbName = sellerData.name;
     sellerLocation = { lat: sellerData.latitude, lon: sellerData.longitude };
@@ -701,17 +699,17 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   const distance = getDistance(buyerLocation.latitude, buyerLocation.longitude, sellerLocation.lat, sellerLocation.lon).toFixed(1);
   const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${buyerLocation.latitude},${buyerLocation.longitude}&destination=${sellerLocation.lat},${sellerLocation.lon}`;
 
-  // ✅ UPDATED: Ab dono ko button wala message jayega
-  const sellerMsg = await sendMessageWithReplyButton(sellerId, `✅ आप *${buyerName}* से कनेक्ट हो गए!\n\nअब आप सीधे बात कर सकते हैं।\n_फोटो भी भेज सकते हैं_`, buyerId);
-  const buyerMsg = await sendMessageWithReplyButton(buyerId, `✅ *${sellerDbName}* उपलब्ध है!\n\n📍 *दूरी:* ${distance} km दूर\n🗺️ *रास्ता:* ${mapsLink}\n\nअब आप सीधे बात कर सकते हैं।\n_फोटो भी भेज सकते हैं_`, sellerId);
+  const sellerMsg = await sendMessageWithId(sellerId, `✅ आप *${buyerName}* से कनेक्ट हो गए!\n\nअब आप सीधे बात कर सकते हैं।\n\n⚠️ जवाब देने के लिए कस्टमर के मैसेज को स्वाइप करके रिप्लाई करें।\n_फोटो भी भेज सकते हैं_`);
+  const buyerMsg = await sendMessageWithId(buyerId, `✅ *${sellerDbName}* उपलब्ध है!\n\n📍 *दूरी:* ${distance} km दूर\n🗺️ *रास्ता:* ${mapsLink}\n\nअब आप सीधे बात कर सकते हैं।\n\n⚠️ जवाब देने के लिए सेलर के मैसेज को स्वाइप करके रिप्लाई करें।\n_फोटो भी भेज सकते हैं_`);
 
   lastMessageId[sellerId] = sellerMsg;
   lastMessageId[buyerId] = buyerMsg;
+
   delete pendingRequests[buyerId];
 }
 
-// ✅ NAYA FUNCTION: Har Message Ke Saath Reply Button
-async function relayMessageWithButtons(from, to, text, fromName) {
+// Relay Text Message With Quote + Name
+async function relayMessageWithQuote(from, to, text, fromName) {
   try {
     const response = await axios({
       method: 'POST',
@@ -724,31 +722,23 @@ async function relayMessageWithButtons(from, to, text, fromName) {
         messaging_product: 'whatsapp',
         to: to,
         context: lastMessageId[to]? { message_id: lastMessageId[to] } : undefined,
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: { text: `*${fromName}*\n${text}` },
-          action: {
-            buttons: [
-              { type: 'reply', reply: { id: `chat_reply_${from}`, title: '↩️ Reply' } }
-            ]
-          }
-        }
+        text: { body: `*${fromName}*\n${text}` }
       }
     });
+
     lastMessageId[to] = response.data.messages[0].id;
     lastMessageId[from] = response.data.messages[0].id;
-    console.log(`Relayed with button: ${fromName} -> ${to}`);
+
+    console.log(`Relayed: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Error:', error.response?.data || error.message);
   }
 }
 
-// ✅ NAYA FUNCTION: Image Ke Saath Reply Button
-async function relayImageWithButtons(from, to, image, caption, fromName) {
+// Relay Image With Quote + Name
+async function relayImageWithQuote(from, to, image, caption, fromName) {
   try {
-    // Pehle image bhejo
-    const imageResponse = await axios({
+    const response = await axios({
       method: 'POST',
       url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
       headers: {
@@ -767,81 +757,25 @@ async function relayImageWithButtons(from, to, image, caption, fromName) {
       }
     });
 
-    const imageMsgId = imageResponse.data.messages[0].id;
+    lastMessageId[to] = response.data.messages[0].id;
+    lastMessageId[from] = response.data.messages[0].id;
 
-    // Phir uske neeche Reply button bhejo
-    const buttonResponse = await axios({
-      method: 'POST',
-      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        messaging_product: 'whatsapp',
-        to: to,
-        context: { message_id: imageMsgId },
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: { text: 'ऊपर वाले message के लिए:' },
-          action: {
-            buttons: [
-              { type: 'reply', reply: { id: `chat_reply_${from}`, title: '↩️ Reply' } }
-            ]
-          }
-        }
-      }
-    });
-
-    lastMessageId[to] = buttonResponse.data.messages[0].id;
-    lastMessageId[from] = buttonResponse.data.messages[0].id;
-    console.log(`Relayed Image with button: ${fromName} -> ${to}`);
+    console.log(`Relayed Image: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Image Error:', error.response?.data || error.message);
   }
 }
 
-// ✅ NAYA FUNCTION: Initial Connect Message With Button
-async function sendMessageWithReplyButton(to, text, otherUserId) {
-  try {
-    const response = await axios({
-      method: 'POST',
-      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: { text: text },
-          action: {
-            buttons: [
-              { type: 'reply', reply: { id: `chat_reply_${otherUserId}`, title: '↩️ Reply' } }
-            ]
-          }
-        }
-      }
-    });
-    return response.data.messages[0].id;
-  } catch (error) {
-    console.log('Error:', error.response?.data || error.message);
-    return await sendMessage(to, text); // Fallback
-  }
-}
-
+// Distance Calculator
 function getDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = (lat2-lat1)*Math.PI/180;
-  const dLon = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Send Simple Message
 async function sendMessage(to, text) {
   try {
     const response = await axios({
@@ -864,20 +798,33 @@ async function sendMessage(to, text) {
   }
 }
 
+// Send Message and Return ID
+async function sendMessageWithId(to, text) {
+  return await sendMessage(to, text);
+}
+
+// Admin route - Manual seller add karne ke liye
 app.post('/admin/add-seller', async (req, res) => {
   const adminKey = req.headers['x-admin-key'];
+
   if (adminKey!== 'nearme_admin_2026') {
     return res.status(403).json({ error: 'Unauthorized' });
   }
+
   try {
-    const { data, error } = await supabase.from('sellers').insert([req.body]).select();
+    const { data, error } = await supabase
+     .from('sellers')
+     .insert([req.body])
+     .select();
+
     if (error) throw error;
+
     res.json({ success: true, data: data[0] });
   } catch (error) {
     console.log('Admin Add Seller Error:', error);
     res.status(500).json({ error: error.message });
   }
-});
+}); // <-- Ye bracket missing tha
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
