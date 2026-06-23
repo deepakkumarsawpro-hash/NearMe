@@ -5,87 +5,45 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 console.log('Supabase Connected');
 
-// Categories - Yahan add kar jitna chahiye
 const CATEGORIES = {
-  "इलेक्ट्रॉनिक्स": [
-    "मोबाइल और टैबलेट", "लैपटॉप और कंप्यूटर", "टीवी और ऑडियो", "होम एप्लायंसेज", "स्मार्ट वॉच",
-    "कैमरा और गियर", "राउटर और नेटवर्क", "सॉफ्टवेयर और ऐप्स", "इलेक्ट्रॉनिक पार्ट्स", "ऑफिस इलेक्ट्रॉनिक्स"
-  ],
-  "राशन और किराना": [
-    "फल और सब्जियां", "डेयरी और बेकरी", "आटा, चावल, दाल", "तेल और मसाले", "स्नैक्स और पैक्ड",
-    "जूस और ड्रिंक्स", "मीट और सीफूड", "मिठाई और डेसर्ट", "पालतू का सामान", "शिशु आहार"
-  ],
-  "फैशन और ब्यूटी": [
-    "पुरुषों के कपड़े", "महिलाओं के कपड़े", "बच्चों के कपड़े", "जूते और चप्पल", "इनरवियर",
-    "ज्वेलरी और घड़ियां", "बैग और सूटकेस", "मेकअप/कॉस्मेटिक", "इत्र और परफ्यूम", "पर्सनल ग्रूमिंग"
-  ],
-  "होम व इंडस्ट्रियल": [
-    "फर्नीचर", "घर की सजावट", "बर्तन और किचन", "हार्डवेयर और टूल्स", "बिजली और प्लंबिंग",
-    "भारी मशीनरी", "कच्चा माल", "सफाई का सामान", "खेती और बागवानी", "सुरक्षा और CCTV"
-  ],
-  "रेस्टोरेंट और फूड": [
-    "भारतीय खाना", "इंटरनेशनल फूड", "फास्ट फूड", "कैफे और बेकरी", "बिरयानी और तंदूर",
-    "आइसक्रीम/शेक्स", "टिफिन और किचन", "पब और लाउंज", "कैटरिंग सर्विस", "हेल्दी फूड"
-  ],
-  "स्वास्थ्य/मेडिकल": [
-    "दवा/फार्मेसी", "क्लिनिक/डॉक्टर", "अस्पताल", "लैब टेस्ट", "दांत",
-    "आंख", "फिटनेस", "हेल्थ सप्लीमेंट", "मेडिकल उपकरण", "मानसिक स्वास्थ्य"
-  ],
-  "शिक्षा/नौकरियां": [
-    "स्कूल/कॉलेज", "यूनिवर्सिटी", "कोचिंग", "होम ट्यूशन", "स्किल कोर्सेज",
-    "हॉबी क्लासेस", "किताबें/स्टेशनरी", "नौकरी/वैकेंसी", "करियर गाइडेंस", "ऑनलाइन लर्निंग"
-  ],
-  "लोकल व B2B सेवाएं": [
-    "घर के मिस्त्री", "सफाई और पेस्ट", "पैकर्स और मूवर्स", "लीगल/CA सर्विस", "IT व वेब एक्सपर्ट",
-    "मार्केटिंग और इवेंट", "बैंकिंग, इंश्योरेंस", "इंटीरियर डिजाइन", "सैलून और स्पा", "सिक्योरिटी सर्विस"
-  ],
-  "ऑटोमोबाइल": [
-    "बाइक और स्कूटर", "कार और SUV", "कमर्शियल गाड़ियां", "स्पेयर पार्ट्स", "गैराज/मैकेनिक",
-    "कार वॉश/डेकोर", "टायर और बैटरी", "कैब और रेंटल", "EV चार्जिंग", "कूरियर व ट्रांसपोर्ट"
-  ],
-  "प्रॉपर्टी और स्टे": [
-    "बिक्री की प्रॉपर्टी", "किराए का घर", "PG और हॉस्टल्स", "दुकानें और ऑफिस", "इंडस्ट्रियल जमीन",
-    "प्लॉट और फार्म", "होटल/रिसॉर्ट्स", "प्रॉपर्टी डीलर", "लीगल पेपरवर्क", "को-वर्किंग स्पेस"
-  ]
+  "इलेक्ट्रॉनिक्स": ["मोबाइल और टैबलेट", "लैपटॉप और कंप्यूटर", "टीवी और ऑडियो", "होम एप्लायंसेज", "स्मार्ट वॉच", "कैमरा और गियर", "राउटर और नेटवर्क", "सॉफ्टवेयर और ऐप्स", "इलेक्ट्रॉनिक पार्ट्स", "ऑफिस इलेक्ट्रॉनिक्स"],
+  "राशन और किराना": ["फल और सब्जियां", "डेयरी और बेकरी", "आटा, चावल, दाल", "तेल और मसाले", "स्नैक्स और पैक्ड", "जूस और ड्रिंक्स", "मीट और सीफूड", "मिठाई और डेसर्ट", "पालतू का सामान", "शिशु आहार"],
+  "फैशन और ब्यूटी": ["पुरुषों के कपड़े", "महिलाओं के कपड़े", "बच्चों के कपड़े", "जूते और चप्पल", "इनरवियर", "ज्वेलरी और घड़ियां", "बैग और सूटकेस", "मेकअप/कॉस्मेटिक", "इत्र और परफ्यूम", "पर्सनल ग्रूमिंग"],
+  "होम व इंडस्ट्रियल": ["फर्नीचर", "घर की सजावट", "बर्तन और किचन", "हार्डवेयर और टूल्स", "बिजली और प्लंबिंग", "भारी मशीनरी", "कच्चा माल", "सफाई का सामान", "खेती और बागवानी", "सुरक्षा और CCTV"],
+  "रेस्टोरेंट और फूड": ["भारतीय खाना", "इंटरनेशनल फूड", "फास्ट फूड", "कैफे और बेकरी", "बिरयानी और तंदूर", "आइसक्रीम/शेक्स", "टिफिन और किचन", "पब और लाउंज", "कैटरिंग सर्विस", "हेल्दी फूड"],
+  "स्वास्थ्य/मेडिकल": ["दवा/फार्मेसी", "क्लिनिक/डॉक्टर", "अस्पताल", "लैब टेस्ट", "दांत", "आंख", "फिटनेस", "हेल्थ सप्लीमेंट", "मेडिकल उपकरण", "मानसिक स्वास्थ्य"],
+  "शिक्षा/नौकरियां": ["स्कूल/कॉलेज", "यूनिवर्सिटी", "कोचिंग", "होम ट्यूशन", "स्किल कोर्सेज", "हॉबी क्लासेस", "किताबें/स्टेशनरी", "नौकरी/वैकेंसी", "करियर गाइडेंस", "ऑनलाइन लर्निंग"],
+  "लोकल व B2B सेवाएं": ["घर के मिस्त्री", "सफाई और पेस्ट", "पैकर्स और मूवर्स", "लीगल/CA सर्विस", "IT व वेब एक्सपर्ट", "मार्केटिंग और इवेंट", "बैंकिंग, इंश्योरेंस", "इंटीरियर डिजाइन", "सैलून और स्पा", "सिक्योरिटी सर्विस"],
+  "ऑटोमोबाइल": ["बाइक और स्कूटर", "कार और SUV", "कमर्शियल गाड़ियां", "स्पेयर पार्ट्स", "गैराज/मैकेनिक", "कार वॉश/डेकोर", "टायर और बैटरी", "कैब और रेंटल", "EV चार्जिंग", "कूरियर व ट्रांसपोर्ट"],
+  "प्रॉपर्टी और स्टे": ["बिक्री की प्रॉपर्टी", "किराए का घर", "PG और हॉस्टल्स", "दुकानें और ऑफिस", "इंडस्ट्रियल जमीन", "प्लॉट और फार्म", "होटल/रिसॉर्ट्स", "प्रॉपर्टी डीलर", "लीगल पेपरवर्क", "को-वर्किंग स्पेस"]
 };
 
 const userState = {};
 const pendingRequests = {};
 const activeChats = {};
 const lastMessageId = {};
+const tempSelections = {}; // Web form ke liye
 
-// ✅ STEP 1: App Secret verify function
 function verifySignature(req, res, buf) {
   const signature = req.headers['x-hub-signature-256'];
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-
-  if (!signature ||!appSecret) {
-    return;
-  }
-
-  const expectedSignature = 'sha256=' + crypto
-   .createHmac('sha256', appSecret)
-   .update(buf)
-   .digest('hex');
-
-  if (signature!== expectedSignature) {
-    throw new Error('Invalid signature');
-  }
+  if (!signature ||!appSecret) return;
+  const expectedSignature = 'sha256=' + crypto.createHmac('sha256', appSecret).update(buf).digest('hex');
+  if (signature!== expectedSignature) throw new Error('Invalid signature');
 }
 
-app.use('/webhook', express.raw({ type: 'application/json', verify: verifySignature }));
+app.use('/webhook', express.raw({type: 'application/json', verify: verifySignature}));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true })); // Form data ke liye
 
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-
   if (mode && token) {
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
       console.log('WEBHOOK_VERIFIED');
@@ -96,17 +54,91 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+// ✅ WEB PAGE - Multiple Select Ke Liye
+app.get('/select', (req, res) => {
+  const { user, category, type } = req.query;
+  if (!user ||!category ||!CATEGORIES[category]) {
+    return res.send('Invalid Link');
+  }
+
+  const subcats = CATEGORIES[category];
+  const checkboxes = subcats.map(sub => `
+    <label style="display:block; padding:12px; margin:8px 0; background:#f0f0f0; border-radius:8px; font-size:16px;">
+      <input type="checkbox" name="subcats" value="${sub}" style="width:20px; height:20px; margin-right:10px;"> ${sub}
+    </label>
+  `).join('');
+
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Select करें</title>
+      <style>
+        body { font-family: Arial; padding: 20px; background: #fff; }
+        h2 { color: #075e54; }
+        button { width:100%; padding:15px; background:#25D366; color:white; border:none; border-radius:8px; font-size:18px; margin-top:20px; }
+       .selected { background:#d4edda!important; }
+      </style>
+    </head>
+    <body>
+      <h2>${category}</h2>
+      <p>जितनी चाहिए उतनी Select करें 👇</p>
+      <form action="/submit" method="POST">
+        <input type="hidden" name="user" value="${user}">
+        <input type="hidden" name="type" value="${type}">
+        ${checkboxes}
+        <button type="submit">Done - WhatsApp पर वापस जाएं</button>
+      </form>
+      <script>
+        document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+          cb.onchange = () => cb.parentElement.classList.toggle('selected', cb.checked);
+        });
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// ✅ FORM SUBMIT - WhatsApp Pe Wapas Bhejo
+app.post('/submit', async (req, res) => {
+  const { user, type, subcats } = req.body;
+  const selected = Array.isArray(subcats)? subcats : subcats? [subcats] : [];
+
+  if (selected.length === 0) {
+    return res.send('कुछ तो Select करो! <a href="javascript:history.back()">Back</a>');
+  }
+
+  // State me save karo
+  if (type === 'seller') {
+    userState[user].data.subcategories = selected;
+    userState[user].step = 'name';
+    userState[user].timestamp = Date.now();
+    await sendMessage(user, `✅ ${selected.length} सर्विस Select हो गई:\n${selected.join(', ')}\n\nअब अपना नाम बताइए:`);
+  } else if (type === 'buyer') {
+    userState[user].data.subcategories = selected;
+    userState[user].step = 'location';
+    userState[user].timestamp = Date.now();
+    await sendMessage(user, `✅ ${selected.length} कैटेगरी चुनीं:\n${selected.join(', ')}\n\nअब अपनी लोकेशन भेजिए 📍`);
+  }
+
+  res.send(`
+    <html>
+    <head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+    <body style="font-family:Arial; text-align:center; padding:50px;">
+      <h2 style="color:#25D366;">✅ हो गया!</h2>
+      <p>WhatsApp पर वापस जाओ</p>
+      <script>setTimeout(() => window.close(), 2000);</script>
+    </body>
+    </html>
+  `);
+});
+
 app.post('/webhook', async (req, res) => {
   const body = JSON.parse(req.body.toString());
-
   if (body.object) {
-    if (
-      body.entry &&
-      body.entry[0].changes &&
-      body.entry[0].changes[0] &&
-      body.entry[0].changes[0].value.messages &&
-      body.entry[0].changes[0].value.messages[0]
-    ) {
+    if (body.entry && body.entry[0].changes && body.entry[0].changes[0] && body.entry[0].changes[0].value.messages && body.entry[0].changes[0].value.messages[0]) {
       const value = body.entry[0].changes[0].value;
       const message = value.messages[0];
       const from = message.from;
@@ -116,13 +148,11 @@ app.post('/webhook', async (req, res) => {
       const buttonReply = message.interactive?.button_reply?.id;
       const listReply = message.interactive?.list_reply?.id;
       const context = message.context;
-      const nfmReply = message.interactive?.nfm_reply; // For WhatsApp Flows
       const contacts = value.contacts?.[0];
       const profileName = contacts?.profile?.name || 'User';
 
-      console.log('Message from:', from, 'Name:', profileName, 'Type:', message.type);
+      console.log('Message from:', from, 'Type:', message.type);
 
-      // 1. Cancel/Restart check
       if (msgBody && ['cancel', 'stop', 'exit', 'menu', 'restart', 'home', 'कैंसल', 'बंद'].includes(msgBody.toLowerCase())) {
         if (activeChats[from]) {
           const otherUser = activeChats[from].with;
@@ -138,8 +168,7 @@ app.post('/webhook', async (req, res) => {
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 2. Active Chat - Text ya Image relay WITH BUTTONS
-      if (activeChats[from] && context) {
+      if (activeChats[from]) {
         if (msgBody) {
           await relayMessageWithButtons(from, activeChats[from].with, msgBody, profileName);
         } else if (image) {
@@ -148,31 +177,20 @@ app.post('/webhook', async (req, res) => {
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 3. Seller ne "Available" button dabaya
       if (buttonReply === 'available_btn' && context) {
         await connectBuyerSeller(from, context.id, profileName);
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 4. Chat me Reply/Confirm/Call button dabaye
       if (buttonReply && buttonReply.startsWith('chat_reply_')) {
-        const targetUser = buttonReply.replace('chat_reply_', '');
-        await sendMessage(from, 'Reply karo apne message me 👇');
+        await sendMessage(from, '👆 ऊपर वाले मैसेज को swipe करके reply करो');
         return res.status(200).send('EVENT_RECEIVED');
       }
       if (buttonReply && buttonReply.startsWith('chat_confirm_')) {
-        await sendMessage(from, 'Confirm kar diya ✅');
-        await sendMessage(activeChats[from].with, `*${profileName}* ne confirm kar diya ✅`);
+        await sendMessage(activeChats[from].with, `*${profileName}* ने Confirm कर दिया ✅`);
         return res.status(200).send('EVENT_RECEIVED');
       }
 
-      // 5. WhatsApp Flow Response - Multiple Subcategory Select
-      if (nfmReply) {
-        await handleFlowResponse(from, nfmReply);
-        return res.status(200).send('EVENT_RECEIVED');
-      }
-
-      // 6. Normal flow
       if (buttonReply) {
         await handleButtonClick(from, buttonReply);
       }
@@ -200,7 +218,6 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// Send Main Menu
 async function sendMainMenu(to) {
   try {
     await axios({
@@ -236,18 +253,39 @@ async function handleButtonClick(from, buttonId) {
     await startSellerRegistration(from);
   } else if (buttonId === 'buyer_btn') {
     await startBuyerSearch(from);
-  } else if (buttonId === 'add_more_yes') {
-    userState[from].step = 'category';
-    await sendCategoryList(from, 'seller');
-  } else if (buttonId === 'add_more_no') {
-    userState[from].step = 'name';
-    await sendMessage(from, `सब कैटेगरी सेव हो गईं ✅\n\nअब अपना नाम बताइए:`);
   }
 }
 
-// Naya Function - Add More Option
-async function sendAddMoreOption(to, lastSubcat) {
-  const subcatList = userState[to].data.subcategories.join(', ');
+async function handleListClick(from, listId) {
+  const state = userState[from];
+  if (!state) return;
+
+  if (state.flow === 'seller') {
+    if (listId.startsWith('cat_')) {
+      const category = listId.replace('cat_', '');
+      userState[from].data.category = category;
+      userState[from].step = 'subcategory';
+      userState[from].timestamp = Date.now();
+      await sendSubcategoryLink(from, category, 'seller');
+    }
+  }
+
+  if (state.flow === 'buyer') {
+    if (listId.startsWith('bcat_')) {
+      const category = listId.replace('bcat_', '');
+      userState[from].data.category = category;
+      userState[from].step = 'subcategory';
+      userState[from].timestamp = Date.now();
+      await sendSubcategoryLink(from, category, 'buyer');
+    }
+  }
+}
+
+// ✅ LINK BHEJO - Multiple Select Ke Liye
+async function sendSubcategoryLink(to, category, flowType) {
+  const baseUrl = process.env.RENDER_EXTERNAL_URL || `https://${process.env.RENDER_SERVICE_NAME}.onrender.com`;
+  const link = `${baseUrl}/select?user=${to}&category=${encodeURIComponent(category)}&type=${flowType}`;
+
   try {
     await axios({
       method: 'POST',
@@ -259,16 +297,9 @@ async function sendAddMoreOption(to, lastSubcat) {
       data: {
         messaging_product: 'whatsapp',
         to: to,
-        type: 'interactive',
-        interactive: {
-          type: 'button',
-          body: { text: `✅ ${lastSubcat} जुड़ गया\n\nअभी तक: ${subcatList}\n\nक्या कोई और सर्विस/प्रोडक्ट जोड़ना है?` },
-          action: {
-            buttons: [
-              { type: 'reply', reply: { id: 'add_more_yes', title: 'हां, और जोड़ें' } },
-              { type: 'reply', reply: { id: 'add_more_no', title: 'नहीं, आगे बढ़ें' } }
-            ]
-          }
+        type: 'text',
+        text: {
+          body: `📋 ${category}\n\n👇 इस लिंक पे क्लिक करके multiple select करो:\n${link}\n\n_Jitni chahiye utni tick karo, phir Submit dabao_`
         }
       }
     });
@@ -277,124 +308,28 @@ async function sendAddMoreOption(to, lastSubcat) {
   }
 }
 
-// Handle List Clicks
-async function handleListClick(from, listId) {
-  const state = userState[from];
-  if (!state) return;
-
-  if (state.flow === 'seller') {
-    if (listId.startsWith('cat_')) {
-      const category = listId.replace('cat_', '');
-      userState[from].data.category = category;
-      userState[from].step = 'subcategory';
-      userState[from].timestamp = Date.now();
-      // NEW: Send Flow for Multiple Selection
-      await sendSubcategoryFlow(from, category, 'seller');
-    }
-    else if (listId.startsWith('subcat_')) {
-      const subcategory = listId.replace('subcat_', '');
-      if (!userState[from].data.subcategories) {
-        userState[from].data.subcategories = [];
-      }
-      if (!userState[from].data.subcategories.includes(subcategory)) {
-        userState[from].data.subcategories.push(subcategory);
-      }
-      userState[from].step = 'add_more';
-      userState[from].timestamp = Date.now();
-      await sendAddMoreOption(from, subcategory);
-    }
-  }
-
-  if (state.flow === 'buyer') {
-    if (listId.startsWith('bcat_')) {
-      const category = listId.replace('bcat_', '');
-      userState[from].data.category = category;
-      userState[from].step = 'subcategory';
-      userState[from].timestamp = Date.now();
-      await sendSubcategoryFlow(from, category, 'buyer');
-    }
-    else if (listId.startsWith('bsubcat_')) {
-      const subcategory = listId.replace('bsubcat_', '');
-      userState[from].data.subcategory = subcategory;
-      userState[from].step = 'location';
-      userState[from].timestamp = Date.now();
-      await sendMessage(from, `कैटेगरी: ${subcategory} ✅\n\nअब अपनी लोकेशन भेजिए 📍`);
-    }
-  }
-}
-
-// NEW: Handle WhatsApp Flow Response - Multiple Subcategory
-async function handleFlowResponse(from, nfmReply) {
-  const state = userState[from];
-  if (!state) return;
-
-  const responseJson = nfmReply.response_json;
-  const data = JSON.parse(responseJson);
-
-  if (data.subcategories && Array.isArray(data.subcategories)) {
-    if (state.flow === 'seller') {
-      if (!userState[from].data.subcategories) {
-        userState[from].data.subcategories = [];
-      }
-      userState[from].data.subcategories = [...new Set([...userState[from].data.subcategories,...data.subcategories])];
-      userState[from].step = 'add_more';
-      userState[from].timestamp = Date.now();
-      await sendAddMoreOption(from, data.subcategories[data.subcategories.length - 1]);
-    }
-
-    if (state.flow === 'buyer') {
-      // Buyer ke liye multiple select - pehla wala le lo ya sab ke liye search karo
-      userState[from].data.subcategories = data.subcategories;
-      userState[from].step = 'location';
-      userState[from].timestamp = Date.now();
-      await sendMessage(from, `✅ ${data.subcategories.length} कैटेगरी चुनीं: ${data.subcategories.join(', ')}\n\nअब अपनी लोकेशन भेजिए 📍`);
-    }
-  }
-}
-
-// Start Seller Registration
 async function startSellerRegistration(to) {
-  const { data: existing } = await supabase
-   .from('sellers')
-   .select('id, name')
-   .eq('whatsapp_id', to)
-   .single();
-
+  const { data: existing } = await supabase.from('sellers').select('id, name').eq('whatsapp_id', to).single();
   if (existing) {
     await sendMessage(to, `आप पहले से रजिस्टर हैं: ${existing.name} ✅\n\nएक व्हाट्सएप नंबर से एक ही सेल/सर्विस रजिस्टर हो सकती है.`);
     return;
   }
-
-  userState[to] = {
-    flow: 'seller',
-    step: 'category',
-    data: { subcategories: [] },
-    timestamp: Date.now()
-  };
+  userState[to] = { flow: 'seller', step: 'category', data: { subcategories: [] }, timestamp: Date.now() };
   await sendCategoryList(to, 'seller');
 }
 
-// Start Buyer Search
 async function startBuyerSearch(to) {
-  userState[to] = {
-    flow: 'buyer',
-    step: 'category',
-    data: {},
-    timestamp: Date.now()
-  };
+  userState[to] = { flow: 'buyer', step: 'category', data: { subcategories: [] }, timestamp: Date.now() };
   await sendCategoryList(to, 'buyer');
 }
 
-// Send Category List
 async function sendCategoryList(to, flowType) {
   const prefix = flowType === 'buyer'? 'bcat_' : 'cat_';
   const text = flowType === 'buyer'
-   ? 'कस्टमर सर्च शुरू करें.\n\nआपको क्या चाहिए?\n\n_कैंसल करने के लिए "cancel" लिखें_'
+? 'कस्टमर सर्च शुरू करें.\n\nआपको क्या चाहिए?\n\n_कैंसल करने के लिए "cancel" लिखें_'
     : 'सेलर रजिस्ट्रेशन शुरू करें.\n\nअपनी कैटेगरी चुनें:\n\n_कैंसल करने के लिए "cancel" लिखें_';
-
   const allCategories = Object.keys(CATEGORIES);
   const sections = [];
-
   for (let i = 0; i < allCategories.length; i += 10) {
     const chunk = allCategories.slice(i, i + 10);
     sections.push({
@@ -406,7 +341,6 @@ async function sendCategoryList(to, flowType) {
       }))
     });
   }
-
   try {
     await axios({
       method: 'POST',
@@ -422,10 +356,7 @@ async function sendCategoryList(to, flowType) {
         interactive: {
           type: 'list',
           body: { text },
-          action: {
-            button: 'कैटेगरी',
-            sections: sections
-          }
+          action: { button: 'कैटेगरी', sections: sections }
         }
       }
     });
@@ -434,132 +365,6 @@ async function sendCategoryList(to, flowType) {
   }
 }
 
-// NEW: Send Subcategory Flow - Multiple Selection
-async function sendSubcategoryFlow(to, category, flowType) {
-  const subcats = CATEGORIES[category];
-  const text = flowType === 'buyer'
-   ? `${category} में क्या चाहिए?\n\nएक से ज्यादा चुन सकते हो ✅\n_कैंसल करने के लिए "cancel" लिखें_`
-    : `${category} में अपनी सर्विस चुनें:\n\nएक से ज्यादा चुन सकते हो ✅\n_कैंसल करने के लिए "cancel" लिखें_`;
-
-  // WhatsApp Flow JSON - Multiple Checkbox
-  const flowData = {
-    version: "3.0",
-    screens: [{
-      id: "SUBCATEGORY_SCREEN",
-      title: category,
-      data: {
-        subcategories: {
-          type: "array",
-          items: subcats.map(sub => ({
-            id: sub,
-            title: sub
-          }))
-        }
-      },
-      layout: {
-        type: "SingleColumnLayout",
-        children: [{
-          type: "CheckboxGroup",
-          name: "subcategories",
-          label: "सब-कैटेगरी चुनें",
-          required: true,
-          "data-source": "${data.subcategories}"
-        }, {
-          type: "Footer",
-          label: "Done",
-          "on-click-action": {
-            name: "complete",
-            payload: {
-              subcategories: "${form.subcategories}"
-            }
-          }
-        }]
-      }
-    }]
-  };
-
-  try {
-    await axios({
-      method: 'POST',
-      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'interactive',
-        interactive: {
-          type: 'flow',
-          header: { text: 'सब-कैटेगरी' },
-          body: { text },
-          action: {
-            name: 'flow',
-            parameters: {
-              flow_message_version: "3",
-              flow_token: `subcategory_${flowType}_${Date.now()}`,
-              flow_id: process.env.SUBCATEGORY_FLOW_ID, // Meta me create karna padega
-              flow_cta: "चुनें",
-              flow_action: "navigate",
-              flow_action_payload: {
-                screen: "SUBCATEGORY_SCREEN",
-                data: flowData
-              }
-            }
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.log('Flow Error, fallback to list:', error.response?.data || error.message);
-    // Fallback: Agar Flow setup nahi hai to normal list bhej de
-    await sendSubcategoryList(to, category, flowType);
-  }
-}
-
-// Send Subcategory List - Fallback
-async function sendSubcategoryList(to, category, flowType) {
-  const subcats = CATEGORIES[category];
-  const prefix = flowType === 'buyer'? 'bsubcat_' : 'subcat_';
-  const text = flowType === 'buyer'
-   ? `${category} में क्या चाहिए?\n\n_कैंसल करने के लिए "cancel" लिखें_`
-    : `${category} में अपनी कैटेगरी चुनें:\n\n_कैंसल करने के लिए "cancel" लिखें_`;
-
-  const subcatRows = subcats.map(sub => ({
-    id: `${prefix}${sub}`,
-    title: sub.substring(0, 24),
-    description: category
-  }));
-
-  try {
-    await axios({
-      method: 'POST',
-      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      data: {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'interactive',
-        interactive: {
-          type: 'list',
-          body: { text },
-          action: {
-            button: 'सब-कैटेगरी',
-            sections: [{ title: `${category} विकल्प`, rows: subcatRows }]
-          }
-        }
-      }
-    });
-  } catch (error) {
-    console.log('Error:', error.response?.data || error.message);
-  }
-}
-
-// Flow Handler
 async function handleFlow(from, msgBody, location, profileName) {
   const state = userState[from];
   if (!state) return;
@@ -569,10 +374,8 @@ async function handleFlow(from, msgBody, location, profileName) {
     await sendMessage(from, '5 मिनट तक कोई जवाब नहीं आया। सेशन खत्म हो गया ⏰\n\nदोबारा शुरू करने के लिए "hi" भेजें।');
     return;
   }
-
   userState[from].timestamp = Date.now();
 
-  // SELLER FLOW
   if (state.flow === 'seller') {
     if (state.step === 'name') {
       userState[from].data.name = msgBody;
@@ -589,15 +392,9 @@ async function handleFlow(from, msgBody, location, profileName) {
         userState[from].data.latitude = location.latitude;
         userState[from].data.longitude = location.longitude;
         userState[from].data.whatsapp_id = from;
-
         try {
-          const { data, error } = await supabase
-           .from('sellers')
-           .insert([userState[from].data])
-           .select();
-
+          const { data, error } = await supabase.from('sellers').insert([userState[from].data]).select();
           if (error) throw error;
-
           const subcatText = userState[from].data.subcategories.join(', ');
           await sendMessage(from, `🎉 बधाई हो! आप NearMe पर रजिस्टर हो गए।\n\nकैटेगरी: ${userState[from].data.category}\nसर्विस: ${subcatText}\n\nअब आपको कस्टमर्स की रिक्वेस्ट मिलेगी।`);
           console.log('New Seller Saved:', data);
@@ -612,48 +409,34 @@ async function handleFlow(from, msgBody, location, profileName) {
     }
   }
 
-  // BUYER FLOW - UPDATED FOR MULTIPLE SUBCATEGORY
   if (state.flow === 'buyer') {
     if (state.step === 'location') {
       if (location) {
-        const { category, subcategory, subcategories } = state.data;
+        const { category, subcategories } = state.data;
         const { latitude, longitude } = location;
-
-        // Multiple subcategory support
-        const searchSubcats = subcategories || [subcategory];
-
+        const searchSubcats = subcategories;
         try {
-          const { data: sellers, error } = await supabase
-           .from('sellers')
-           .select('*')
-           .eq('category', category)
-           .overlaps('subcategories', searchSubcats); // Multiple check
-
+          const { data: sellers, error } = await supabase.from('sellers').select('*').eq('category', category).overlaps('subcategories', searchSubcats);
           if (error ||!sellers?.length) {
             await sendMessage(from, `आस-पास कोई ${searchSubcats.join(', ')} नहीं मिला 😔`);
             return delete userState[from];
           }
-
           const nearby = sellers.filter(s => getDistance(latitude, longitude, s.latitude, s.longitude) <= 5);
-
           if (!nearby.length) {
             await sendMessage(from, '5 km के अंदर कोई सेलर नहीं मिला 😔');
             return delete userState[from];
           }
-
           pendingRequests[from] = {
             subcategory: searchSubcats.join(', '),
             buyerLocation: { latitude, longitude },
             sellers: nearby.map(s => ({ id: s.whatsapp_id, name: s.name, lat: s.latitude, lon: s.longitude })),
             buyerName: profileName
           };
-
           let sentCount = 0;
           for (const seller of nearby) {
             const sentMsg = await sendRequestToSeller(seller.whatsapp_id, searchSubcats.join(', '), from, profileName);
             if (sentMsg) sentCount++;
           }
-
           await sendMessage(from, `✅ ${sentCount} सेलर्स को रिक्वेस्ट भेज दी गई है।\n\nजो सेलर "Available" बोलेगा, उससे आपकी चैट शुरू हो जाएगी।`);
         } catch (error) {
           console.log('Search Error:', error);
@@ -667,7 +450,6 @@ async function handleFlow(from, msgBody, location, profileName) {
   }
 }
 
-// Send Request to Seller
 async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   try {
     const response = await axios({
@@ -683,13 +465,9 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
         type: 'interactive',
         interactive: {
           type: 'button',
-          body: {
-            text: `🔔 नई रिक्वेस्ट!\n\n*${buyerName}* को ${subcategory} चाहिए आपके एरिया में।\n\nक्या आप अवेलेबल हैं?`
-          },
+          body: { text: `🔔 नई रिक्वेस्ट!\n\n*${buyerName}* को ${subcategory} चाहिए आपके एरिया में।\n\nक्या आप अवेलेबल हैं?` },
           action: {
-            buttons: [
-              { type: 'reply', reply: { id: 'available_btn', title: 'हां, मैं उपलब्ध हूं' } }
-            ]
+            buttons: [{ type: 'reply', reply: { id: 'available_btn', title: 'हां, मैं उपलब्ध हूं' } }]
           }
         }
       }
@@ -701,7 +479,6 @@ async function sendRequestToSeller(sellerId, subcategory, buyerId, buyerName) {
   }
 }
 
-// Connect Buyer & Seller
 async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
   let buyerId = null;
   let buyerName = 'कस्टमर';
@@ -726,12 +503,7 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
     return;
   }
 
-  const { data: sellerData } = await supabase
-   .from('sellers')
-   .select('name, latitude, longitude')
-   .eq('whatsapp_id', sellerId)
-   .single();
-
+  const { data: sellerData } = await supabase.from('sellers').select('name, latitude, longitude').eq('whatsapp_id', sellerId).single();
   if (sellerData) {
     sellerDbName = sellerData.name;
     sellerLocation = { lat: sellerData.latitude, lon: sellerData.longitude };
@@ -748,11 +520,9 @@ async function connectBuyerSeller(sellerId, messageId, sellerProfileName) {
 
   lastMessageId[sellerId] = sellerMsg;
   lastMessageId[buyerId] = buyerMsg;
-
   delete pendingRequests[buyerId];
 }
 
-// NEW: Relay Text Message WITH BUTTONS - Auto Swipe
 async function relayMessageWithButtons(from, to, text, fromName) {
   try {
     const response = await axios({
@@ -773,29 +543,22 @@ async function relayMessageWithButtons(from, to, text, fromName) {
           action: {
             buttons: [
               { type: 'reply', reply: { id: `chat_reply_${from}`, title: '↩️ Reply' } },
-              { type: 'reply', reply: { id: `chat_confirm_${from}`, title: '✅ Confirm' } },
-              { type: 'reply', reply: { id: `chat_call_${from}`, title: '📞 Call' } }
+              { type: 'reply', reply: { id: `chat_confirm_${from}`, title: '✅ Confirm' } }
             ]
           }
         }
       }
     });
-
     lastMessageId[to] = response.data.messages[0].id;
     lastMessageId[from] = response.data.messages[0].id;
-
     console.log(`Relayed with buttons: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Error:', error.response?.data || error.message);
-    // Fallback to simple message if buttons fail
-    await relayMessageWithQuote(from, to, text, fromName);
   }
 }
 
-// NEW: Relay Image WITH BUTTONS
 async function relayImageWithButtons(from, to, image, caption, fromName) {
   try {
-    // Pehle image bhejo
     const imageResponse = await axios({
       method: 'POST',
       url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -814,10 +577,8 @@ async function relayImageWithButtons(from, to, image, caption, fromName) {
         }
       }
     });
-
     const imageMsgId = imageResponse.data.messages[0].id;
 
-    // Phir buttons bhejo image ke baad
     const buttonResponse = await axios({
       method: 'POST',
       url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
@@ -842,19 +603,23 @@ async function relayImageWithButtons(from, to, image, caption, fromName) {
         }
       }
     });
-
     lastMessageId[to] = buttonResponse.data.messages[0].id;
     lastMessageId[from] = buttonResponse.data.messages[0].id;
-
     console.log(`Relayed Image with buttons: ${fromName} -> ${to}`);
   } catch (error) {
     console.log('Relay Image Error:', error.response?.data || error.message);
-    await relayImageWithQuote(from, to, image, caption, fromName);
   }
 }
 
-// Fallback functions
-async function relayMessageWithQuote(from, to, text, fromName) {
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+async function sendMessage(to, text) {
   try {
     const response = await axios({
       method: 'POST',
@@ -864,4 +629,64 @@ async function relayMessageWithQuote(from, to, text, fromName) {
         'Content-Type': 'application/json'
       },
       data: {
-        messaging_product: '
+        messaging_product: 'whatsapp',
+        to: to,
+        text: { body: text }
+      }
+    });
+    return response.data.messages[0].id;
+  } catch (error) {
+    console.log('Error sending message:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+async function sendMessageWithButtons(to, text, otherUserId) {
+  try {
+    const response = await axios({
+      method: 'POST',
+      url: `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+      headers: {
+        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      data: {
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: text },
+          action: {
+            buttons: [
+              { type: 'reply', reply: { id: `chat_reply_${otherUserId}`, title: '↩️ Reply' } },
+              { type: 'reply', reply: { id: `chat_confirm_${otherUserId}`, title: '✅ Confirm' } }
+            ]
+          }
+        }
+      }
+    });
+    return response.data.messages[0].id;
+  } catch (error) {
+    console.log('Error:', error.response?.data || error.message);
+    return await sendMessage(to, text);
+  }
+}
+
+app.post('/admin/add-seller', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  if (adminKey!== 'nearme_admin_2026') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  try {
+    const { data, error } = await supabase.from('sellers').insert([req.body]).select();
+    if (error) throw error;
+    res.json({ success: true, data: data[0] });
+  } catch (error) {
+    console.log('Admin Add Seller Error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => console.log(`Server running on ${PORT}`));
