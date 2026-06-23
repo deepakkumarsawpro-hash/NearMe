@@ -252,7 +252,7 @@ app.post('/webhook', async (req, res) => {
         await handleFlow(from, msgBody, location, profileName);
       }
       else if (msgBody) {
-        if (['hi', 'hello', 'हाय', 'हेलो', 'नमस्ते'].includes(msgBody.toLowerCase())) {
+        if (['hi', 'hello', 'Hi NearMe', 'हेलो', 'नमस्ते'].includes(msgBody.toLowerCase())) {
           await sendMainMenu(from);
         }
         else if (['seller', 'सेलर'].includes(msgBody.toLowerCase())) {
